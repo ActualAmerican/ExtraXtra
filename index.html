@@ -10,10 +10,19 @@
     <div id="game">
         <h1>ExtraXtra</h1>
         <p id="score">Score: <span id="currentScore">0</span> | Streak: <span id="currentStreak">0</span></p>
+        <div id="difficulty">
+            <label><input type="radio" name="difficulty" value="decade" checked> Decade</label>
+            <label><input type="radio" name="difficulty" value="year"> Year</label>
+            <label><input type="radio" name="difficulty" value="month"> Month</label>
+            <label><input type="radio" name="difficulty" value="day"> Day</label>
+        </div>
         <p id="headline"></p>
-        <input type="number" id="guess" placeholder="Enter Year" min="1700" max="2023">
+        <div id="guessContainer">
+            <select id="guess" aria-label="Select your guess"></select>
+        </div>
         <button onclick="checkGuess()">Guess</button>
         <p id="result"></p>
+        <p id="timer" style="display: none;">Time Left: <span id="timeLeft">30</span> seconds</p>
         <button onclick="newRound()" id="next" style="display: none;">Next Headline</button>
         <button onclick="restartGame()" id="restart" style="display: none;">Restart Game</button>
     </div>

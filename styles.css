@@ -35,14 +35,6 @@ h1 {
     border-radius: 4px;
 }
 
-#guess {
-    padding: 10px;
-    margin-bottom: 10px;
-    width: 90%;
-    max-width: 150px;
-    font-size: 1em;
-}
-
 button {
     background-color: #4CAF50;
     border: none;
@@ -62,8 +54,42 @@ button:hover {
     background-color: #45a049;
 }
 
-#controls {
-    margin-top: 20px;
+#difficulty {
+    margin: 10px 0;
+}
+
+#difficulty label {
+    margin-right: 10px;
+}
+
+#timer {
+    color: red;
+}
+
+#guessContainer {
+    margin: 10px 0;
+    text-align: center;
+}
+
+#guess {
+    padding: 10px;
+    font-size: 1em;
+    min-width: 150px;
+    max-width: 200px;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background: url('data:image/svg+xml;utf8,<svg fill="%23000000" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>') no-repeat right #ffffff;
+    background-position-x: calc(100% - 10px);
+    background-position-y: calc(50% + 5px);
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+#guess:focus {
+    outline: none;
+    border-color: #4CAF50;
+    box-shadow: 0 0 5px rgba(76, 175, 80, 0.5);
 }
 
 @media (max-width: 600px) {

@@ -3,8 +3,10 @@ let score = 0;
 let streak = 0;
 let streakMultiplier = 1;
 let gameState = { 
-    difficulty: 'year' // 'year', 'month', or 'day'
+    difficulty: 'decade' // 'decade', 'year', 'month', or 'day'
 };
+let timerInterval;
+let timeLimit = 30; // seconds
 
 function fetchHeadline() {
     const apiUrl = 'https://chroniclingamerica.loc.gov/search/pages/results/?format=json&proxtext=news&dateFilterType=yearRange&page=1';
@@ -20,12 +22,13 @@ function fetchHeadline() {
                 currentHeadline = {
                     text: item.title,
                     date: {
-                        year: dateParts[0],
-                        month: dateParts[1],
-                        day: dateParts[2]
+                        year: parseInt(dateParts[0]),
+                        month: parseInt(dateParts[1]),
+                        day: parseInt(dateParts[2])
                     }
                 };
                 document.getElementById('headline').textContent = currentHeadline.text;
+                updateGuessOptions();
             } else {
                 document.getElementById('headline').textContent = "No headlines available. Refreshing...";
                 setTimeout(fetchHeadline, 3000); // Try again after 3 seconds
@@ -38,29 +41,93 @@ function fetchHeadline() {
         });
 }
 
+function updateGuessOptions() {
+    const select = document.getElementById('guess');
+    select.innerHTML = ''; // Clear previous options
+
+    switch(gameState.difficulty) {
+        case 'decade':
+            for (let i = 1700; i <= 2020; i += 10) {
+                let option = document.createElement('option');
+                option.value = i;
+                option.text = `${i}s`;
+                select.appendChild(option);
+            }
+            break;
+        case 'year':
+            for (let i = 1700; i <= 2023; i++) {
+                let option = document.createElement('option');
+                option.value = i;
+                option.text = i;
+                select.appendChild(option);
+            }
+            break;
+        case 'month':
+            const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            months.forEach((month, index) => {
+                let option = document.createElement('option');
+                option.value = index + 1; // Months are 1-indexed
+                option.text = month;
+                select.appendChild(option);
+            });
+            break;
+        case 'day':
+            const daysInMonth = new Date(currentHeadline.date.year, currentHeadline.date.month, 0).getDate();
+            for (let i = 1; i <= daysInMonth; i++) {
+                let option = document.createElement('option');
+                option.value = i;
+                option.text = `${i}${getDaySuffix(i)}`;
+                select.appendChild(option);
+            }
+            break;
+    }
+}
+
+function getDaySuffix(day) {
+    if (day > 3 && day < 21) return 'th';
+    switch (day % 10) {
+        case 1:  return "st";
+        case 2:  return "nd";
+        case 3:  return "rd";
+        default: return "th";
+    }
+}
+
 function checkGuess() {
     const guess = document.getElementById('guess').value;
     let correct = false;
     let feedback = "";
 
+    const difficultyRadios = document.getElementsByName('difficulty');
+    for (let radio of difficultyRadios) {
+        if (radio.checked) {
+            gameState.difficulty = radio.value;
+            break;
+        }
+    }
+
     switch(gameState.difficulty) {
+        case 'decade':
+            correct = Math.floor(currentHeadline.date.year / 10) * 10 === parseInt(guess);
+            feedback = `The decade was the ${Math.floor(currentHeadline.date.year / 10) * 10}s.`;
+            break;
         case 'year':
-            correct = guess === currentHeadline.date.year;
+            correct = currentHeadline.date.year === parseInt(guess);
             feedback = `The year was ${currentHeadline.date.year}.`;
             break;
         case 'month':
-            correct = guess === currentHeadline.date.month;
-            feedback = `The month was ${currentHeadline.date.month}.`;
+            correct = currentHeadline.date.month === parseInt(guess);
+            feedback = `The month was ${new Date(1970, guess - 1, 1).toLocaleString('default', { month: 'long' })}.`;
             break;
         case 'day':
-            correct = guess === currentHeadline.date.day;
-            feedback = `The day was ${currentHeadline.date.day}.`;
+            correct = currentHeadline.date.day === parseInt(guess);
+            feedback = `The day was ${currentHeadline.date.day}${getDaySuffix(currentHeadline.date.day)}.`;
             break;
     }
 
     if(correct) {
         streak++;
-        streakMultiplier = 1 + (streak * 0.1); // Increases with each correct guess
+        streakMultiplier = 1 + (streak * 0.1);
         score += Math.round(streakMultiplier);
         document.getElementById('result').textContent = "Correct!";
         document.getElementById('currentScore').textContent = score;
@@ -70,8 +137,13 @@ function checkGuess() {
         return;
     }
 
-    document.getElementById('guess').value = '';
+    document.getElementById('guess').value = ''; // Reset selection
     fetchHeadline();
+    if (gameState.difficulty !== 'decade' && gameState.difficulty !== 'year') {
+        startTimer();
+    } else {
+        stopTimer();
+    }
 }
 
 function gameOver(feedback) {
@@ -79,6 +151,7 @@ function gameOver(feedback) {
     document.getElementById('guess').disabled = true;
     document.getElementById('next').style.display = 'none';
     document.getElementById('restart').style.display = 'inline-block';
+    stopTimer();
     updateHighScore(score);
 }
 
@@ -94,7 +167,35 @@ function newRound() {
     document.getElementById('guess').value = '';
     document.getElementById('result').textContent = '';
     document.getElementById('next').style.display = 'none';
+    document.getElementById('restart').style.display = 'none';
+    document.getElementById('guess').disabled = false;
     fetchHeadline();
+    
+    if (gameState.difficulty !== 'decade' && gameState.difficulty !== 'year') {
+        startTimer();
+    } else {
+        stopTimer();
+    }
+}
+
+function startTimer() {
+    let time = timeLimit;
+    document.getElementById('timer').style.display = 'block';
+    document.getElementById('timeLeft').textContent = time;
+
+    timerInterval = setInterval(() => {
+        time--;
+        document.getElementById('timeLeft').textContent = time;
+        if (time <= 0) {
+            clearInterval(timerInterval);
+            gameOver("Time's up!");
+        }
+    }, 1000);
+}
+
+function stopTimer() {
+    clearInterval(timerInterval);
+    document.getElementById('timer').style.display = 'none';
 }
 
 function restartGame() {
@@ -103,6 +204,7 @@ function restartGame() {
     streakMultiplier = 1;
     document.getElementById('currentScore').textContent = score;
     document.getElementById('currentStreak').textContent = streak;
+    document.getElementById('score').innerHTML = `Score: <span id="currentScore">0</span> | Streak: <span id="currentStreak">0</span>`;
     document.getElementById('guess').disabled = false;
     document.getElementById('restart').style.display = 'none';
     newRound();
