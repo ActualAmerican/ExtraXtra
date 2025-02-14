@@ -1,8 +1,9 @@
 let currentHeadline = { text: "", date: "" };
 let score = 0;
+let streak = 0;
+let streakMultiplier = 1;
 let gameState = { 
-    difficulty: 'year', // 'year', 'month', or 'day'
-    timeLimit: null 
+    difficulty: 'year' // 'year', 'month', or 'day'
 };
 
 function fetchHeadline() {
@@ -58,14 +59,35 @@ function checkGuess() {
     }
 
     if(correct) {
-        score++;
+        streak++;
+        streakMultiplier = 1 + (streak * 0.1); // Increases with each correct guess
+        score += Math.round(streakMultiplier);
         document.getElementById('result').textContent = "Correct!";
+        document.getElementById('currentScore').textContent = score;
+        document.getElementById('currentStreak').textContent = streak;
     } else {
-        document.getElementById('result').textContent = `Wrong! ${feedback}`;
+        gameOver(feedback);
+        return;
     }
-    document.getElementById('currentScore').textContent = score;
-    document.getElementById('next').style.display = 'block';
-    if (gameState.timeLimit) clearTimeout(gameState.timeLimit);
+
+    document.getElementById('guess').value = '';
+    fetchHeadline();
+}
+
+function gameOver(feedback) {
+    document.getElementById('result').textContent = `Wrong! ${feedback} Game Over! Your final score: ${score}`;
+    document.getElementById('guess').disabled = true;
+    document.getElementById('next').style.display = 'none';
+    document.getElementById('restart').style.display = 'inline-block';
+    updateHighScore(score);
+}
+
+function updateHighScore(newScore) {
+    const highScore = localStorage.getItem('highScore');
+    if (!highScore || newScore > parseInt(highScore)) {
+        localStorage.setItem('highScore', newScore);
+        document.getElementById('score').innerHTML += `<br>New High Score: ${newScore}`;
+    }
 }
 
 function newRound() {
@@ -73,28 +95,27 @@ function newRound() {
     document.getElementById('result').textContent = '';
     document.getElementById('next').style.display = 'none';
     fetchHeadline();
-    if (gameState.difficulty === 'day' || gameState.difficulty === 'month') {
-        gameState.timeLimit = setTimeout(() => {
-            document.getElementById('result').textContent = "Time's up!";
-            document.getElementById('next').style.display = 'block';
-        }, 30000); // 30 seconds
-    }
 }
 
-function shareScore() {
-    const shareText = `I scored ${score} in Extra! Extra! Guess the Date. Can you beat it?`;
-    if (navigator.share) {
-        navigator.share({
-            title: 'Extra! Extra! Guess the Date',
-            text: shareText,
-            url: window.location.href
-        }).then(() => console.log('Thanks for sharing!'))
-          .catch((error) => console.log('Error sharing:', error));
-    } else {
-        alert('Please copy this link and share: ' + window.location.href);
-    }
+function restartGame() {
+    score = 0;
+    streak = 0;
+    streakMultiplier = 1;
+    document.getElementById('currentScore').textContent = score;
+    document.getElementById('currentStreak').textContent = streak;
+    document.getElementById('guess').disabled = false;
+    document.getElementById('restart').style.display = 'none';
+    newRound();
 }
 
-document.getElementById('next').style.display = 'none';
 document.getElementById('currentScore').textContent = score;
+document.getElementById('currentStreak').textContent = streak;
 newRound(); // Start the game by fetching the first headline
+
+// Load high score when page loads
+window.onload = function() {
+    const highScore = localStorage.getItem('highScore');
+    if (highScore) {
+        document.getElementById('score').innerHTML += `<br>High Score: ${highScore}`;
+    }
+};
