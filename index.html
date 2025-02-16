@@ -16,15 +16,37 @@
             <label><input type="radio" name="difficulty" value="month"> Month</label>
             <label><input type="radio" name="difficulty" value="day"> Day</label>
         </div>
-        <p id="headline"></p>
-        <div id="guessContainer">
-            <select id="guess" aria-label="Select your guess"></select>
+        <p id="activeMode" style="display: none;">Playing in <span id="currentMode"></span> mode</p>
+        <p id="headline">Select difficulty and start guessing!</p>
+        <div id="guessContainer" style="display: none;">
+            <div id="decadeGuess" style="display: none;">
+                <input list="decadeOptions" id="decadeInput" aria-label="Select decade">
+                <datalist id="decadeOptions"></datalist>
+            </div>
+            <div id="yearGuess" style="display: none;">
+                <input list="yearOptions" id="yearInput" aria-label="Select year">
+                <datalist id="yearOptions"></datalist>
+            </div>
+            <div id="monthGuess" style="display: none;">
+                <input type="month" id="monthInput" aria-label="Select year and month">
+            </div>
+            <div id="dayGuess" style="display: none;">
+                <input list="dayYearOptions" id="dayYearInput" aria-label="Select year">
+                <datalist id="dayYearOptions"></datalist>
+                <input list="dayMonthOptions" id="dayMonthInput" aria-label="Select month">
+                <datalist id="dayMonthOptions"></datalist>
+                <input list="dayOptions" id="dayInput" aria-label="Select day">
+                <datalist id="dayOptions"></datalist>
+            </div>
+            <button onclick="checkGuess()" id="submitGuess">Submit Guess</button>
         </div>
-        <button onclick="checkGuess()">Guess</button>
+        <button onclick="startGame()">Start Game</button>
         <p id="result"></p>
         <p id="timer" style="display: none;">Time Left: <span id="timeLeft">30</span> seconds</p>
         <button onclick="newRound()" id="next" style="display: none;">Next Headline</button>
         <button onclick="restartGame()" id="restart" style="display: none;">Restart Game</button>
+        <!-- Temporary End Game Button for Development -->
+        <button onclick="endGameForDev()" id="endGameDev" style="position: absolute; top: 10px; right: 10px; font-size: 12px; padding: 5px;">End Game (Dev)</button>
     </div>
     <script src="script.js"></script>
 </body>
