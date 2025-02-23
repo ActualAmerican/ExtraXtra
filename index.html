@@ -3,51 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ExtraXtra</title>
+    <title>ExtraXtra - History Trivia Game</title>
+    <link href="https://fonts.googleapis.com/css2?family=Stencilla&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div id="game">
+    <div class="game-container">
         <h1>ExtraXtra</h1>
-        <p id="score">Score: <span id="currentScore">0</span> | Streak: <span id="currentStreak">0</span></p>
-        <div id="difficulty">
-            <label><input type="radio" name="difficulty" value="decade" checked> Decade</label>
-            <label><input type="radio" name="difficulty" value="year"> Year</label>
-            <label><input type="radio" name="difficulty" value="month"> Month</label>
-            <label><input type="radio" name="difficulty" value="day"> Day</label>
+
+        <!-- Menu Screen -->
+        <div id="menu-screen" class="screen">
+            <p>Welcome! Choose your game mode:</p>
+            <button id="mode-decade">Decade Mode</button>
+            <button id="mode-year" disabled>Year Mode (Coming Soon)</button>
+            <button id="mode-month" disabled>Month Mode (Coming Soon)</button>
+            <button id="mode-day" disabled>Day Mode (Coming Soon)</button>
         </div>
-        <p id="activeMode" style="display: none;">Playing in <span id="currentMode"></span> mode</p>
-        <p id="headline">Select difficulty and start guessing!</p>
-        <div id="guessContainer" style="display: none;">
-            <div id="decadeGuess" style="display: none;">
-                <input list="decadeOptions" id="decadeInput" aria-label="Select decade">
-                <datalist id="decadeOptions"></datalist>
+
+        <!-- Game Screen -->
+        <div id="game-screen" class="screen" style="display: none;">
+            <p>Guess the <span id="mode-display">decade</span> of the article!</p>
+            
+            <div id="article-container" class="article">
+                <p id="article-text">Loading article...</p>
             </div>
-            <div id="yearGuess" style="display: none;">
-                <input list="yearOptions" id="yearInput" aria-label="Select year">
-                <datalist id="yearOptions"></datalist>
+
+            <div class="input-section">
+                <label for="guess-input">Enter your guess:</label>
+                <input type="number" id="guess-input" step="10" min="1800" max="2020" placeholder="e.g., 1920">
+                <button id="submit-guess">Submit Guess</button>
             </div>
-            <div id="monthGuess" style="display: none;">
-                <input type="month" id="monthInput" aria-label="Select year and month">
+
+            <div class="score-section">
+                <p>Score: <span id="score">0</span></p>
+                <p>Streak: <span id="streak">0</span></p>
             </div>
-            <div id="dayGuess" style="display: none;">
-                <input list="dayYearOptions" id="dayYearInput" aria-label="Select year">
-                <datalist id="dayYearOptions"></datalist>
-                <input list="dayMonthOptions" id="dayMonthInput" aria-label="Select month">
-                <datalist id="dayMonthOptions"></datalist>
-                <input list="dayOptions" id="dayInput" aria-label="Select day">
-                <datalist id="dayOptions"></datalist>
-            </div>
-            <button onclick="checkGuess()" id="submitGuess">Submit Guess</button>
+
+            <div id="feedback" class="feedback"></div>
         </div>
-        <button onclick="startGame()">Start Game</button>
-        <p id="result"></p>
-        <p id="timer" style="display: none;">Time Left: <span id="timeLeft">30</span> seconds</p>
-        <button onclick="newRound()" id="next" style="display: none;">Next Headline</button>
-        <button onclick="restartGame()" id="restart" style="display: none;">Restart Game</button>
-        <!-- Temporary End Game Button for Development -->
-        <button onclick="endGameForDev()" id="endGameDev" style="position: absolute; top: 10px; right: 10px; font-size: 12px; padding: 5px;">End Game (Dev)</button>
     </div>
+
     <script src="script.js"></script>
 </body>
 </html>

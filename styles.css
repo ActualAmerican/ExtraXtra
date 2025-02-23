@@ -1,94 +1,169 @@
 body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-family: 'Courier New', Courier, monospace;
+    background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png') repeat, #1a1a1a;
+    margin: 0;
+    padding: 20px;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-    background-color: #e6e6e6;
+    color: #e0e0e0;
+    background-size: 100px 100px; /* Smaller for pronounced texture */
+    background-blend-mode: normal; /* Crisper texture */
+    position: relative;
+    overflow: hidden;
 }
 
-#game {
-    background: #fff;
+body::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: url('https://www.transparenttextures.com/patterns/smoke.png') repeat;
+    opacity: 0.4; /* More visible smoke */
+    background-size: 300px 300px; /* Tighter smoke pattern */
+    animation: drift 15s linear infinite; /* Faster drift */
+    pointer-events: none;
+    z-index: 0;
+}
+
+@keyframes drift {
+    0% { background-position: 0 0; }
+    100% { background-position: 150px 150px; } /* Bigger shift */
+}
+
+.game-container {
+    max-width: 800px;
+    background: url('https://www.transparenttextures.com/patterns/old-paper.png') repeat, #2b2b2b;
     padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    text-align: center;
-    max-width: 90%;
-    width: 400px;
+    border-radius: 0;
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.7);
+    border: 2px solid #4a4a4a;
+    position: relative;
+    z-index: 1;
 }
 
 h1 {
-    color: #333;
-    margin-bottom: 20px;
+    text-align: center;
+    color: #ff4d4d;
+    font-family: 'Stencilla', 'Courier New', Courier, monospace;
+    font-size: 2.5em;
+    font-weight: 700;
+    text-transform: none;
+    letter-spacing: 2px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
 }
 
-#score, #result {
-    margin: 10px 0;
+.screen {
+    text-align: center;
 }
 
-#headline {
-    font-size: 1.1em;
-    margin-bottom: 20px;
+.screen button {
+    display: block;
+    width: 200px;
+    margin: 10px auto;
     padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-}
-
-button {
-    background-color: #4CAF50;
-    border: none;
-    color: white;
-    padding: 10px 20px;
-    text-align: center;
-    text-decoration: none;
-    display: inline-block;
     font-size: 16px;
-    margin: 4px 2px;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #4a4a4a;
+    color: #e0e0e0;
+    border: 1px solid #ff4d4d;
+    border-radius: 0;
     cursor: pointer;
-    border-radius: 5px;
-    transition: background-color 0.3s;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-button:hover {
-    background-color: #45a049;
+.screen button:disabled {
+    background-color: #333;
+    border-color: #666;
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
-#difficulty {
-    margin: 10px 0;
+.screen button:hover:not(:disabled) {
+    background-color: #ff4d4d;
+    color: #1a1a1a;
 }
 
-#difficulty label {
-    margin-right: 10px;
+.article {
+    background: rgba(245, 245, 220, 0.9);
+    padding: 15px;
+    border: 1px dashed #4a4a4a;
+    margin: 20px 0;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 1.1em;
+    line-height: 1.6;
+    color: #1a1a1a;
 }
 
-#timer {
-    color: red;
+.redaction-bar {
+    display: inline-block;
+    background-color: #000;
+    color: #000;
+    height: 1.2em;
+    vertical-align: middle;
+    margin: 0 2px;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
 }
 
-#guessContainer {
-    margin: 10px 0;
+.input-section {
+    margin: 20px 0;
     text-align: center;
 }
 
-#guessContainer input[list] {
-    width: 200px;
-    height: 40px;
+input[type="number"] {
+    padding: 8px;
     font-size: 16px;
-    padding: 5px;
-    margin: 5px;
+    width: 120px;
+    margin-right: 10px;
+    font-family: 'Courier New', Courier, monospace;
+    background: #333;
+    color: #e0e0e0;
+    border: 1px solid #ff4d4d;
+    border-radius: 0;
 }
 
-#guessContainer input[type="month"] {
-    width: 200px;
-    height: 40px;
+button#submit-guess {
+    padding: 8px 16px;
     font-size: 16px;
-    padding: 5px;
-    margin: 5px;
+    font-family: 'Courier New', Courier, monospace;
+    background-color: #4a4a4a;
+    color: #e0e0e0;
+    border: 1px solid #ff4d4d;
+    border-radius: 0;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 1px;
 }
 
-@media (max-width: 600px) {
-    #game {
-        width: 90%;
-    }
+button#submit-guess:hover {
+    background-color: #ff4d4d;
+    color: #1a1a1a;
+}
+
+.score-section {
+    text-align: center;
+    font-size: 1.1em;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 10px;
+    margin-top: 10px;
+    border: 1px solid #ff4d4d;
+}
+
+.feedback {
+    text-align: center;
+    margin-top: 20px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.feedback.correct {
+    color: #00cc00;
+}
+
+.feedback.incorrect {
+    color: #ff4d4d;
 }
