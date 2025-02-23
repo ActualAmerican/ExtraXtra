@@ -1,35 +1,11 @@
 body {
     font-family: 'Courier New', Courier, monospace;
-    background: url('https://www.transparenttextures.com/patterns/asfalt-dark.png') repeat, #1a1a1a;
+    background: #1a1a1a;
     margin: 0;
     padding: 20px;
     display: flex;
     justify-content: center;
     color: #e0e0e0;
-    background-size: 100px 100px; /* Smaller for pronounced texture */
-    background-blend-mode: normal; /* Crisper texture */
-    position: relative;
-    overflow: hidden;
-}
-
-body::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: url('https://www.transparenttextures.com/patterns/smoke.png') repeat;
-    opacity: 0.4; /* More visible smoke */
-    background-size: 300px 300px; /* Tighter smoke pattern */
-    animation: drift 15s linear infinite; /* Faster drift */
-    pointer-events: none;
-    z-index: 0;
-}
-
-@keyframes drift {
-    0% { background-position: 0 0; }
-    100% { background-position: 150px 150px; } /* Bigger shift */
 }
 
 .game-container {
@@ -52,6 +28,14 @@ h1 {
     text-transform: none;
     letter-spacing: 2px;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+h2 {
+    text-align: center;
+    color: #ff4d4d;
+    font-family: 'Stencilla', 'Courier New', Courier, monospace;
+    font-size: 2em;
+    text-transform: uppercase;
 }
 
 .screen {
@@ -113,7 +97,11 @@ h1 {
     text-align: center;
 }
 
-input[type="number"] {
+#input-container {
+    margin: 10px 0;
+}
+
+input[type="number"], input[type="month"], input[type="date"] {
     padding: 8px;
     font-size: 16px;
     width: 120px;
@@ -123,6 +111,10 @@ input[type="number"] {
     color: #e0e0e0;
     border: 1px solid #ff4d4d;
     border-radius: 0;
+}
+
+input[type="month"], input[type="date"] {
+    width: 160px;
 }
 
 button#submit-guess {
@@ -166,4 +158,8 @@ button#submit-guess:hover {
 
 .feedback.incorrect {
     color: #ff4d4d;
+}
+
+.endgame-buttons {
+    margin-top: 20px;
 }

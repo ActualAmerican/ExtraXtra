@@ -1,36 +1,105 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // Menu elements
     const menuScreen = document.getElementById("menu-screen");
     const gameScreen = document.getElementById("game-screen");
+    const endgameScreen = document.getElementById("endgame-screen");
     const modeDecadeBtn = document.getElementById("mode-decade");
+    const modeYearBtn = document.getElementById("mode-year");
+    const modeMonthBtn = document.getElementById("mode-month");
+    const modeDayBtn = document.getElementById("mode-day");
     const modeDisplay = document.getElementById("mode-display");
-
-    // Game elements
     const articleText = document.getElementById("article-text");
-    const guessInput = document.getElementById("guess-input");
+    const inputContainer = document.getElementById("input-container");
+    const inputLabel = document.getElementById("input-label");
     const submitButton = document.getElementById("submit-guess");
     const scoreDisplay = document.getElementById("score");
     const streakDisplay = document.getElementById("streak");
+    const multiplierDisplay = document.getElementById("multiplier");
     const feedback = document.getElementById("feedback");
+    const endgameMessage = document.getElementById("endgame-message");
+    const endgameScore = document.getElementById("endgame-score");
+    const personalBestDisplay = document.getElementById("personal-best");
+    const restartButton = document.getElementById("restart-game");
+    const shareButton = document.getElementById("share-score");
+    const watchAdButton = document.getElementById("watch-ad");
+    const backToMenuButton = document.getElementById("back-to-menu");
 
     let score = 0;
     let streak = 0;
-    let correctDecade;
-    let currentMode = "decade";
+    let multiplier = 1.0;
+    let currentMode;
+    let correctDate;
+    let adUsed = false;
+    let personalBest = localStorage.getItem("personalBest") ? parseInt(localStorage.getItem("personalBest")) : 0;
 
-    // Start game with selected mode
+    // Start game
     function startGame(mode) {
         currentMode = mode;
         modeDisplay.textContent = mode;
         menuScreen.style.display = "none";
         gameScreen.style.display = "block";
+        endgameScreen.style.display = "none";
+        score = 0;
+        streak = 0;
+        multiplier = 1.0;
+        adUsed = false;
+        submitButton.disabled = false;
+        setupInput(mode);
         fetchArticle();
+        updateDisplay();
         console.log(`Game started in ${mode} mode`);
     }
 
-    modeDecadeBtn.addEventListener("click", () => startGame("decade"));
+    // Setup input
+    function setupInput(mode) {
+        inputContainer.innerHTML = "";
+        let input;
+        switch (mode) {
+            case "decade":
+                input = document.createElement("input");
+                input.type = "number";
+                input.id = "guess-input";
+                input.step = "10";
+                input.min = "1800";
+                input.max = "2020";
+                input.placeholder = "e.g., 1920";
+                inputLabel.textContent = "Enter the decade (e.g., 1920):";
+                break;
+            case "year":
+                input = document.createElement("input");
+                input.type = "number";
+                input.id = "guess-input";
+                input.min = "1800";
+                input.max = "2020";
+                input.placeholder = "e.g., 1923";
+                inputLabel.textContent = "Enter the year (e.g., 1923):";
+                break;
+            case "month":
+                input = document.createElement("input");
+                input.type = "month";
+                input.id = "guess-input";
+                input.min = "1800-01";
+                input.max = "2020-12";
+                inputLabel.textContent = "Enter the year and month (e.g., 1923-08):";
+                break;
+            case "day":
+                input = document.createElement("input");
+                input.type = "date";
+                input.id = "guess-input";
+                input.min = "1800-01-01";
+                input.max = "2020-12-31";
+                inputLabel.textContent = "Enter the full date (e.g., 1923-08-15):";
+                break;
+        }
+        inputContainer.appendChild(input);
+    }
 
-    // Fetch article from Chronicling America API
+    // Mode listeners
+    modeDecadeBtn.addEventListener("click", () => startGame("decade"));
+    modeYearBtn.addEventListener("click", () => startGame("year"));
+    modeMonthBtn.addEventListener("click", () => startGame("month"));
+    modeDayBtn.addEventListener("click", () => startGame("day"));
+
+    // Fetch article
     async function fetchArticle() {
         try {
             const response = await fetch("https://chroniclingamerica.loc.gov/search/pages/results/?format=json&proximity=5&rows=1&sort=date");
@@ -39,18 +108,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
             if (data.items && data.items.length > 0) {
                 const item = data.items[0];
-                const date = item.date; // e.g., "19230115"
-                correctDecade = Math.floor(parseInt(date.substring(0, 4)) / 10) * 10;
-                console.log("Correct Decade:", correctDecade);
+                const date = item.date;
+                correctDate = {
+                    year: parseInt(date.substring(0, 4)),
+                    month: parseInt(date.substring(4, 6)),
+                    day: parseInt(date.substring(6, 8)),
+                    decade: Math.floor(parseInt(date.substring(0, 4)) / 10) * 10
+                };
+                console.log("Correct Date:", correctDate);
 
-                // Redact time-sensitive info with black bars
                 let text = item.ocr_eng || "No text available.";
                 text = redactText(text);
-                articleText.innerHTML = text; // Use innerHTML for styled spans
+                articleText.innerHTML = text;
 
-                // Narrow decade input range
-                guessInput.min = correctDecade - 10;
-                guessInput.max = correctDecade + 10;
+                const input = document.getElementById("guess-input");
+                if (currentMode === "decade") {
+                    input.min = correctDate.decade - 10;
+                    input.max = correctDate.decade + 10;
+                } else if (currentMode === "year") {
+                    input.min = correctDate.year - 5;
+                    input.max = correctDate.year + 5;
+                }
             } else {
                 articleText.textContent = "Failed to load article. Try refreshing.";
             }
@@ -60,14 +138,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    // Redact text with black bars
+    // Redact text
     function redactText(text) {
-        // Redact years (1800–2099)
         text = text.replace(/\b(18|19|20)\d{2}\b/g, (match) => {
-            const width = match.length * 0.6 + "em"; // Approximate width based on character count
+            const width = match.length * 0.6 + "em";
             return `<span class="redaction-bar" style="width: ${width}"></span>`;
         });
-        // Redact months
         text = text.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, (match) => {
             const width = match.length * 0.6 + "em";
             return `<span class="redaction-bar" style="width: ${width}"></span>`;
@@ -75,40 +151,106 @@ document.addEventListener("DOMContentLoaded", () => {
         return text;
     }
 
-    // Handle guess submission
+    // Handle guess
     submitButton.addEventListener("click", () => {
-        const guess = parseInt(guessInput.value);
+        const input = document.getElementById("guess-input");
+        let guess;
+        if (currentMode === "month") {
+            const [year, month] = input.value.split("-");
+            guess = { year: parseInt(year), month: parseInt(month) };
+        } else if (currentMode === "day") {
+            const [year, month, day] = input.value.split("-");
+            guess = { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
+        } else {
+            guess = parseInt(input.value);
+        }
         console.log("User Guess:", guess);
 
-        if (isNaN(guess)) {
+        if (!guess || (typeof guess === "object" && (isNaN(guess.year) || (currentMode !== "year" && isNaN(guess.month))))) {
             feedback.textContent = "Please enter a valid guess.";
             feedback.className = "feedback incorrect";
             return;
         }
 
-        if (guess === correctDecade && currentMode === "decade") {
-            score += 1;
-            streak += 1;
+        if (checkGuess(guess)) {
+            updateScore();
             feedback.textContent = "Correct! Onward to the next article.";
             feedback.className = "feedback correct";
-            updateScoreDisplay();
+            updateDisplay();
             setTimeout(() => {
                 feedback.textContent = "";
                 fetchArticle();
-                guessInput.value = "";
+                input.value = "";
             }, 1500);
         } else {
-            feedback.textContent = `Game Over! The correct decade was ${correctDecade}. Final Score: ${score}`;
-            feedback.className = "feedback incorrect";
-            submitButton.disabled = true;
+            endGame();
         }
     });
 
-    // Update score and streak display
-    function updateScoreDisplay() {
-        scoreDisplay.textContent = score;
-        streakDisplay.textContent = streak;
+    // Check guess
+    function checkGuess(guess) {
+        switch (currentMode) {
+            case "decade": return guess === correctDate.decade;
+            case "year": return guess === correctDate.year;
+            case "month": return guess.year === correctDate.year && guess.month === correctDate.month;
+            case "day": return guess.year === correctDate.year && guess.month === correctDate.month && guess.day === correctDate.day;
+        }
+        return false;
     }
+
+    // Update score
+    function updateScore() {
+        const basePoints = { decade: 1, year: 2, month: 3, day: 4 }[currentMode];
+        streak++;
+        multiplier = Math.min(1.0 + streak * 0.1, 2.0);
+        score += basePoints * multiplier;
+    }
+
+    // Update display
+    function updateDisplay() {
+        scoreDisplay.textContent = Math.round(score);
+        streakDisplay.textContent = streak;
+        multiplierDisplay.textContent = multiplier.toFixed(1);
+    }
+
+    // End game
+    function endGame() {
+        gameScreen.style.display = "none";
+        endgameScreen.style.display = "block";
+        const finalScore = Math.round(score);
+        endgameMessage.textContent = `The correct date was ${correctDate.year}-${String(correctDate.month).padStart(2, '0')}-${String(correctDate.day).padStart(2, '0')}.`;
+        endgameScore.textContent = finalScore;
+        personalBest = Math.max(personalBest, finalScore);
+        personalBestDisplay.textContent = personalBest;
+        localStorage.setItem("personalBest", personalBest);
+        watchAdButton.disabled = adUsed;
+    }
+
+    // Endgame actions
+    restartButton.addEventListener("click", () => startGame(currentMode));
+    backToMenuButton.addEventListener("click", () => {
+        endgameScreen.style.display = "none";
+        menuScreen.style.display = "block";
+    });
+    shareButton.addEventListener("click", () => {
+        const text = `I scored ${Math.round(score)} in ExtraXtra ${currentMode} mode! Beat that!`;
+        if (navigator.share) {
+            navigator.share({ text }).catch(err => console.error("Share failed:", err));
+        } else {
+            alert("Share not supported. Copy this: " + text);
+        }
+    });
+    watchAdButton.addEventListener("click", () => {
+        if (!adUsed) {
+            adUsed = true;
+            watchAdButton.disabled = true;
+            endgameScreen.style.display = "none";
+            gameScreen.style.display = "block";
+            fetchArticle();
+            console.log("Ad watched - continuing game");
+            // Simulate ad watch (in reality, integrate ad API here)
+        }
+    });
 
     console.log("Menu loaded, awaiting mode selection...");
 });

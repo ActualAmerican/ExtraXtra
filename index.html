@@ -15,9 +15,9 @@
         <div id="menu-screen" class="screen">
             <p>Welcome! Choose your game mode:</p>
             <button id="mode-decade">Decade Mode</button>
-            <button id="mode-year" disabled>Year Mode (Coming Soon)</button>
-            <button id="mode-month" disabled>Month Mode (Coming Soon)</button>
-            <button id="mode-day" disabled>Day Mode (Coming Soon)</button>
+            <button id="mode-year">Year Mode</button>
+            <button id="mode-month">Month Mode</button>
+            <button id="mode-day">Day Mode</button>
         </div>
 
         <!-- Game Screen -->
@@ -29,17 +29,34 @@
             </div>
 
             <div class="input-section">
-                <label for="guess-input">Enter your guess:</label>
-                <input type="number" id="guess-input" step="10" min="1800" max="2020" placeholder="e.g., 1920">
+                <label for="guess-input" id="input-label">Enter your guess:</label>
+                <div id="input-container">
+                    <input type="number" id="guess-input-decade" step="10" min="1800" max="2020" placeholder="e.g., 1920">
+                </div>
                 <button id="submit-guess">Submit Guess</button>
             </div>
 
             <div class="score-section">
                 <p>Score: <span id="score">0</span></p>
                 <p>Streak: <span id="streak">0</span></p>
+                <p>Multiplier: <span id="multiplier">1.0</span>x</p>
             </div>
 
             <div id="feedback" class="feedback"></div>
+        </div>
+
+        <!-- Endgame Screen -->
+        <div id="endgame-screen" class="screen" style="display: none;">
+            <h2>Game Over</h2>
+            <p id="endgame-message"></p>
+            <p>Score: <span id="endgame-score">0</span></p>
+            <p>Personal Best: <span id="personal-best">0</span></p>
+            <div class="endgame-buttons">
+                <button id="restart-game">Restart</button>
+                <button id="share-score">Share</button>
+                <button id="watch-ad">Watch Ad to Continue</button>
+                <button id="back-to-menu">Main Menu</button>
+            </div>
         </div>
     </div>
 
