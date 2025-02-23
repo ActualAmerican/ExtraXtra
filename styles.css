@@ -43,11 +43,13 @@ h2 {
 }
 
 .screen button {
-    display: block;
+    display: inline-block;
     width: 200px;
-    margin: 10px auto;
-    padding: 10px;
+    height: 40px;
+    margin: 10px 5px;
+    padding: 0;
     font-size: 16px;
+    line-height: 40px;
     font-family: 'Courier New', Courier, monospace;
     background-color: #4a4a4a;
     color: #e0e0e0;
@@ -56,6 +58,7 @@ h2 {
     cursor: pointer;
     text-transform: uppercase;
     letter-spacing: 1px;
+    box-sizing: border-box;
 }
 
 .screen button:disabled {
@@ -68,6 +71,15 @@ h2 {
 .screen button:hover:not(:disabled) {
     background-color: #ff4d4d;
     color: #1a1a1a;
+}
+
+.endgame-buttons button {
+    width: 220px; /* Increased from 200px for game over screen */
+    height: 40px;
+    margin: 10px 5px;
+    padding: 0;
+    font-size: 16px;
+    line-height: 40px;
 }
 
 .article {
@@ -130,24 +142,6 @@ input[type="month"], input[type="date"] {
     width: 160px;
 }
 
-button#submit-guess {
-    padding: 8px 16px;
-    font-size: 16px;
-    font-family: 'Courier New', Courier, monospace;
-    background-color: #4a4a4a;
-    color: #e0e0e0;
-    border: 1px solid #ff4d4d;
-    border-radius: 0;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-button#submit-guess:hover {
-    background-color: #ff4d4d;
-    color: #1a1a1a;
-}
-
 .score-section {
     text-align: center;
     font-size: 1.1em;
@@ -166,7 +160,7 @@ button#submit-guess:hover {
     white-space: nowrap;
     overflow: hidden;
     opacity: 1;
-    font-size: 1.5em;
+    font-size: 1.2em; /* Reduced from 1.5em */
 }
 
 .feedback.correct {
@@ -177,6 +171,11 @@ button#submit-guess:hover {
 .feedback.incorrect {
     color: #ff4d4d;
     animation: shake-incorrect 0.5s ease forwards;
+}
+
+.feedback.hint {
+    color: #e0e0e0; /* White for hint to distinguish */
+    animation: type-correct 0.5s steps(20, end); /* Typewriter only */
 }
 
 @keyframes type-correct {

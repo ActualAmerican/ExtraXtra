@@ -12,9 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const inputContainer = document.getElementById("input-container");
     const inputLabel = document.getElementById("input-label");
     const submitButton = document.getElementById("submit-guess");
+    const hintButton = document.getElementById("hint-button");
     const scoreDisplay = document.getElementById("score");
     const streakDisplay = document.getElementById("streak");
     const multiplierDisplay = document.getElementById("multiplier");
+    const hintsUsedDisplay = document.getElementById("hints-used");
     const feedback = document.getElementById("feedback");
     const endgameMessage = document.getElementById("endgame-message");
     const endgameScore = document.getElementById("endgame-score");
@@ -30,6 +32,9 @@ document.addEventListener("DOMContentLoaded", () => {
     let currentMode;
     let correctDate;
     let adUsed = false;
+    let hintsUsed = 0;
+    let hintLocked = false;
+    let lastHintText = ""; // Store last hint for revert
     let personalBest = localStorage.getItem("personalBest") ? parseInt(localStorage.getItem("personalBest")) : 0;
 
     // Start game
@@ -43,11 +48,14 @@ document.addEventListener("DOMContentLoaded", () => {
         streak = 0;
         multiplier = 1.0;
         adUsed = false;
+        hintsUsed = 0;
+        hintLocked = false;
         submitButton.disabled = false;
+        hintButton.disabled = false;
         feedback.textContent = "";
+        updateDisplay();
         setupInput(mode);
         fetchArticle();
-        updateDisplay();
         console.log(`Game started in ${mode} mode`);
     }
 
@@ -140,6 +148,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     input.min = correctDate.year - 5;
                     input.max = correctDate.year + 5;
                 }
+                hintButton.disabled = hintsUsed >= 5;
+                hintLocked = false;
+                updateHintButtonText();
             } else {
                 articleText.textContent = "Failed to load article. Try refreshing.";
             }
@@ -191,6 +202,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => {
                 feedback.textContent = "";
                 feedback.className = "feedback";
+                hintLocked = false;
                 fetchArticle();
                 input.value = "";
             }, 3000);
@@ -199,10 +211,63 @@ document.addEventListener("DOMContentLoaded", () => {
             feedback.className = "feedback incorrect";
             setTimeout(() => {
                 feedback.className = "feedback";
+                hintLocked = false;
                 endGame();
             }, 500);
         }
     });
+
+    // Hint button logic
+    hintButton.addEventListener("click", () => {
+        const hintCost = hintsUsed + 2;
+        if (hintsUsed < 5 && score >= hintCost && !hintLocked) {
+            hintsUsed++;
+            score -= hintCost;
+            hintButton.disabled = hintsUsed >= 5;
+            hintLocked = true;
+            let hintText;
+            switch (currentMode) {
+                case "decade":
+                    hintText = `Hint: The decade is between ${correctDate.decade - 20} and ${correctDate.decade + 20}. (-${hintCost} points)`;
+                    break;
+                case "year":
+                    hintText = `Hint: The year is between ${correctDate.year - 5} and ${correctDate.year + 5}. (-${hintCost} points)`;
+                    break;
+                case "month":
+                    hintText = `Hint: The year is ${correctDate.year}. (-${hintCost} points)`;
+                    break;
+                case "day":
+                    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                    hintText = `Hint: The date is in ${monthNames[correctDate.month - 1]} ${correctDate.year}. (-${hintCost} points)`;
+                    break;
+            }
+            feedback.textContent = hintText;
+            feedback.className = "feedback hint";
+            lastHintText = hintText; // Store hint for revert
+            updateDisplay();
+            updateHintButtonText();
+            console.log(`Hint ${hintsUsed} used: ${hintText}, Cost: ${hintCost} points`);
+        } else if (hintsUsed >= 5) {
+            feedback.textContent = "No more hints available!";
+            feedback.className = "feedback";
+        } else if (hintLocked) {
+            feedback.textContent = "Hint locked until next guess!";
+            feedback.className = "feedback";
+            setTimeout(() => {
+                feedback.textContent = lastHintText;
+                feedback.className = "feedback hint";
+            }, 1000); // Revert after 1s
+        } else {
+            feedback.textContent = `Not enough points for hint (${hintCost} required)!`;
+            feedback.className = "feedback";
+        }
+    });
+
+    // Update hint button text
+    function updateHintButtonText() {
+        const hintCost = hintsUsed + 2;
+        hintButton.textContent = hintsUsed < 5 ? `Hint (-${hintCost} points)` : "Hint (Max Used)";
+    }
 
     // Check guess
     function checkGuess(guess) {
@@ -219,16 +284,16 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateScore() {
         const basePoints = { decade: 1, year: 2, month: 3, day: 4 }[currentMode];
         const multiplierIncrement = {
-            decade: 0.05, // Easiest, smallest boost
-            year: 0.15,   // Moderate increase
-            month: 0.25,  // Bigger jump
-            day: 0.40     // Hardest, biggest boost
+            decade: 0.05,
+            year: 0.15,
+            month: 0.25,
+            day: 0.40
         }[currentMode];
         const maxMultiplier = {
-            decade: 2.5,  // Lowest cap
+            decade: 2.5,
             year: 3.0,
             month: 3.5,
-            day: 4.0      // Highest cap
+            day: 4.0
         }[currentMode];
         streak++;
         multiplier = Math.min(1.0 + streak * multiplierIncrement, maxMultiplier);
@@ -240,6 +305,7 @@ document.addEventListener("DOMContentLoaded", () => {
         scoreDisplay.textContent = Math.round(score);
         streakDisplay.textContent = streak;
         multiplierDisplay.textContent = multiplier.toFixed(2);
+        hintsUsedDisplay.textContent = hintsUsed === 5 ? "5 (MAX)" : hintsUsed;
     }
 
     // End game
