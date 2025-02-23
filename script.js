@@ -1,11 +1,15 @@
 document.addEventListener("DOMContentLoaded", () => {
-    const menuScreen = document.getElementById("menu-screen");
+    const modeScreen = document.getElementById("mode-screen");
+    const timeframeScreen = document.getElementById("timeframe-screen");
     const gameScreen = document.getElementById("game-screen");
     const endgameScreen = document.getElementById("endgame-screen");
-    const modeDecadeBtn = document.getElementById("mode-decade");
-    const modeYearBtn = document.getElementById("mode-year");
-    const modeMonthBtn = document.getElementById("mode-month");
-    const modeDayBtn = document.getElementById("mode-day");
+    const standardModeBtn = document.getElementById("standard-mode");
+    const timeLimitModeBtn = document.getElementById("time-limit-mode");
+    const timeframeDecadeBtn = document.getElementById("timeframe-decade");
+    const timeframeYearBtn = document.getElementById("timeframe-year");
+    const timeframeMonthBtn = document.getElementById("timeframe-month");
+    const timeframeDayBtn = document.getElementById("timeframe-day");
+    const backToModeBtn = document.getElementById("back-to-mode");
     const modeDisplay = document.getElementById("mode-display");
     const articleContainer = document.getElementById("article-container");
     const articleText = document.getElementById("article-text");
@@ -16,7 +20,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const scoreDisplay = document.getElementById("score");
     const streakDisplay = document.getElementById("streak");
     const multiplierDisplay = document.getElementById("multiplier");
+    const timeLimitMultiplierDisplay = document.getElementById("time-limit-multiplier");
     const hintsUsedDisplay = document.getElementById("hints-used");
+    const timeLeftDisplay = document.getElementById("time-left");
+    const timeRemainingDisplay = document.getElementById("time-remaining");
     const feedback = document.getElementById("feedback");
     const endgameMessage = document.getElementById("endgame-message");
     const endgameScore = document.getElementById("endgame-score");
@@ -28,42 +35,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let score = 0;
     let streak = 0;
+    let baseMultiplier = 1.0;
     let multiplier = 1.0;
     let currentMode;
+    let currentTimeframe;
     let correctDate;
     let adUsed = false;
     let hintsUsed = 0;
     let hintLocked = false;
-    let lastHintText = ""; // Store last hint for revert
+    let lastHintText = "";
+    let timeRemaining = 30;
+    let timerInterval = null;
     let personalBest = localStorage.getItem("personalBest") ? parseInt(localStorage.getItem("personalBest")) : 0;
 
-    // Start game
-    function startGame(mode) {
+    // Show timeframe screen
+    function showTimeframeScreen(mode) {
         currentMode = mode;
-        modeDisplay.textContent = mode;
-        menuScreen.style.display = "none";
+        modeScreen.style.display = "none";
+        timeframeScreen.style.display = "block";
+    }
+
+    // Start game
+    function startGame(timeframe) {
+        currentTimeframe = timeframe;
+        modeDisplay.textContent = `${currentMode === "time-limit" ? "Time Limit " : "Standard "}${timeframe}`;
+        timeframeScreen.style.display = "none";
         gameScreen.style.display = "block";
         endgameScreen.style.display = "none";
         score = 0;
         streak = 0;
-        multiplier = 1.0;
+        baseMultiplier = getBaseMultiplier();
+        multiplier = currentMode === "time-limit" ? baseMultiplier * 2 : baseMultiplier;
         adUsed = false;
         hintsUsed = 0;
         hintLocked = false;
+        timeRemaining = 30;
         submitButton.disabled = false;
         hintButton.disabled = false;
         feedback.textContent = "";
         updateDisplay();
-        setupInput(mode);
+        setupInput(timeframe);
         fetchArticle();
-        console.log(`Game started in ${mode} mode`);
+        if (currentMode === "time-limit") startTimer();
+        console.log(`Game started in ${currentMode} ${timeframe} mode`);
+    }
+
+    // Get base multiplier based on timeframe
+    function getBaseMultiplier() {
+        return {
+            decade: 1.0,
+            year: 1.5,
+            month: 2.0,
+            day: 2.5
+        }[currentTimeframe];
     }
 
     // Setup input
-    function setupInput(mode) {
+    function setupInput(timeframe) {
         inputContainer.innerHTML = "";
         let input;
-        switch (mode) {
+        switch (timeframe) {
             case "decade":
                 input = document.createElement("input");
                 input.type = "number";
@@ -104,10 +135,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Mode listeners
-    modeDecadeBtn.addEventListener("click", () => startGame("decade"));
-    modeYearBtn.addEventListener("click", () => startGame("year"));
-    modeMonthBtn.addEventListener("click", () => startGame("month"));
-    modeDayBtn.addEventListener("click", () => startGame("day"));
+    standardModeBtn.addEventListener("click", () => showTimeframeScreen("standard"));
+    timeLimitModeBtn.addEventListener("click", () => showTimeframeScreen("time-limit"));
+
+    // Timeframe listeners
+    timeframeDecadeBtn.addEventListener("click", () => startGame("decade"));
+    timeframeYearBtn.addEventListener("click", () => startGame("year"));
+    timeframeMonthBtn.addEventListener("click", () => startGame("month"));
+    timeframeDayBtn.addEventListener("click", () => startGame("day"));
+    backToModeBtn.addEventListener("click", () => {
+        timeframeScreen.style.display = "none";
+        modeScreen.style.display = "block";
+    });
 
     // Fetch article
     async function fetchArticle() {
@@ -141,15 +180,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 }
 
                 const input = document.getElementById("guess-input");
-                if (currentMode === "decade") {
+                if (currentTimeframe === "decade") {
                     input.min = correctDate.decade - 10;
                     input.max = correctDate.decade + 10;
-                } else if (currentMode === "year") {
+                } else if (currentTimeframe === "year") {
                     input.min = correctDate.year - 5;
                     input.max = correctDate.year + 5;
                 }
                 hintButton.disabled = hintsUsed >= 5;
                 hintLocked = false;
+                timeRemaining = 30;
+                updateDisplay();
+                if (currentMode === "time-limit") startTimer();
                 updateHintButtonText();
             } else {
                 articleText.textContent = "Failed to load article. Try refreshing.";
@@ -173,14 +215,34 @@ document.addEventListener("DOMContentLoaded", () => {
         return text;
     }
 
+    // Start timer
+    function startTimer() {
+        clearInterval(timerInterval);
+        timeLeftDisplay.style.display = "block";
+        timerInterval = setInterval(() => {
+            timeRemaining--;
+            updateDisplay();
+            if (timeRemaining <= 0) {
+                clearInterval(timerInterval);
+                feedback.textContent = "Time's up!";
+                feedback.className = "feedback incorrect";
+                setTimeout(() => {
+                    feedback.className = "feedback";
+                    hintLocked = false;
+                    endGame();
+                }, 500);
+            }
+        }, 1000);
+    }
+
     // Handle guess
     submitButton.addEventListener("click", () => {
         const input = document.getElementById("guess-input");
         let guess;
-        if (currentMode === "month") {
+        if (currentTimeframe === "month") {
             const [year, month] = input.value.split("-");
             guess = { year: parseInt(year), month: parseInt(month) };
-        } else if (currentMode === "day") {
+        } else if (currentTimeframe === "day") {
             const [year, month, day] = input.value.split("-");
             guess = { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
         } else {
@@ -188,7 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         console.log("User Guess:", guess);
 
-        if (!guess || (typeof guess === "object" && (isNaN(guess.year) || (currentMode !== "year" && isNaN(guess.month))))) {
+        if (!guess || (typeof guess === "object" && (isNaN(guess.year) || (currentTimeframe !== "year" && isNaN(guess.month))))) {
             feedback.textContent = "Please enter a valid guess.";
             feedback.className = "feedback incorrect";
             return;
@@ -198,6 +260,7 @@ document.addEventListener("DOMContentLoaded", () => {
             updateScore();
             feedback.textContent = "Correct! Onward to the next article.";
             feedback.className = "feedback correct";
+            clearInterval(timerInterval);
             updateDisplay();
             setTimeout(() => {
                 feedback.textContent = "";
@@ -209,6 +272,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             feedback.textContent = "Incorrect!";
             feedback.className = "feedback incorrect";
+            clearInterval(timerInterval);
             setTimeout(() => {
                 feedback.className = "feedback";
                 hintLocked = false;
@@ -219,14 +283,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Hint button logic
     hintButton.addEventListener("click", () => {
-        const hintCost = hintsUsed + 2;
+        const hintCost = 200 + hintsUsed * 100; // Starts at 200, increases by 100
         if (hintsUsed < 5 && score >= hintCost && !hintLocked) {
             hintsUsed++;
             score -= hintCost;
             hintButton.disabled = hintsUsed >= 5;
             hintLocked = true;
             let hintText;
-            switch (currentMode) {
+            switch (currentTimeframe) {
                 case "decade":
                     hintText = `Hint: The decade is between ${correctDate.decade - 20} and ${correctDate.decade + 20}. (-${hintCost} points)`;
                     break;
@@ -243,7 +307,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             feedback.textContent = hintText;
             feedback.className = "feedback hint";
-            lastHintText = hintText; // Store hint for revert
+            lastHintText = hintText;
             updateDisplay();
             updateHintButtonText();
             console.log(`Hint ${hintsUsed} used: ${hintText}, Cost: ${hintCost} points`);
@@ -256,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
             setTimeout(() => {
                 feedback.textContent = lastHintText;
                 feedback.className = "feedback hint";
-            }, 1000); // Revert after 1s
+            }, 1000);
         } else {
             feedback.textContent = `Not enough points for hint (${hintCost} required)!`;
             feedback.className = "feedback";
@@ -265,13 +329,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update hint button text
     function updateHintButtonText() {
-        const hintCost = hintsUsed + 2;
+        const hintCost = 200 + hintsUsed * 100;
         hintButton.textContent = hintsUsed < 5 ? `Hint (-${hintCost} points)` : "Hint (Max Used)";
     }
 
     // Check guess
     function checkGuess(guess) {
-        switch (currentMode) {
+        switch (currentTimeframe) {
             case "decade": return guess === correctDate.decade;
             case "year": return guess === correctDate.year;
             case "month": return guess.year === correctDate.year && guess.month === correctDate.month;
@@ -282,21 +346,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update score with mode-specific multipliers and caps
     function updateScore() {
-        const basePoints = { decade: 1, year: 2, month: 3, day: 4 }[currentMode];
-        const multiplierIncrement = {
-            decade: 0.05,
-            year: 0.15,
-            month: 0.25,
-            day: 0.40
-        }[currentMode];
-        const maxMultiplier = {
-            decade: 2.5,
-            year: 3.0,
-            month: 3.5,
-            day: 4.0
-        }[currentMode];
+        const basePoints = { 
+            decade: 100,  // Scaled 100x
+            year: 200,    // Scaled 100x
+            month: 300,   // Scaled 100x
+            day: 400      // Scaled 100x
+        }[currentTimeframe];
+        const maxBaseMultiplier = {
+            decade: 5.0,
+            year: 8.0,
+            month: 10.0,
+            day: 15.0
+        }[currentTimeframe];
         streak++;
-        multiplier = Math.min(1.0 + streak * multiplierIncrement, maxMultiplier);
+        baseMultiplier = Math.min(getBaseMultiplier() + (streak - 1) * 0.1, maxBaseMultiplier);
+        multiplier = currentMode === "time-limit" ? baseMultiplier * 2 : baseMultiplier;
+        const maxMultiplier = maxBaseMultiplier * (currentMode === "time-limit" ? 2 : 1);
+        multiplier = Math.min(multiplier, maxMultiplier);
         score += basePoints * multiplier;
     }
 
@@ -304,12 +370,16 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateDisplay() {
         scoreDisplay.textContent = Math.round(score);
         streakDisplay.textContent = streak;
-        multiplierDisplay.textContent = multiplier.toFixed(2);
+        multiplierDisplay.textContent = baseMultiplier.toFixed(1);
+        timeLimitMultiplierDisplay.textContent = currentMode === "time-limit" ? " x2" : "";
         hintsUsedDisplay.textContent = hintsUsed === 5 ? "5 (MAX)" : hintsUsed;
+        timeRemainingDisplay.textContent = timeRemaining;
+        timeLeftDisplay.style.display = currentMode === "time-limit" ? "block" : "none";
     }
 
     // End game
     function endGame() {
+        clearInterval(timerInterval);
         gameScreen.style.display = "none";
         endgameScreen.style.display = "block";
         const finalScore = Math.round(score);
@@ -322,13 +392,14 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Endgame actions
-    restartButton.addEventListener("click", () => startGame(currentMode));
+    restartButton.addEventListener("click", () => startGame(currentTimeframe));
     backToMenuButton.addEventListener("click", () => {
+        clearInterval(timerInterval);
         endgameScreen.style.display = "none";
-        menuScreen.style.display = "block";
+        modeScreen.style.display = "block";
     });
     shareButton.addEventListener("click", () => {
-        const text = `I scored ${Math.round(score)} in ExtraXtra ${currentMode} mode! Beat that!`;
+        const text = `I scored ${Math.round(score)} in ExtraXtra ${currentMode} ${currentTimeframe} mode! Beat that!`;
         if (navigator.share) {
             navigator.share({ text }).catch(err => console.error("Share failed:", err));
         } else {

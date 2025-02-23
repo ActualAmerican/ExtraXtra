@@ -11,13 +11,21 @@
     <div class="game-container">
         <h1>ExtraXtra</h1>
 
-        <!-- Menu Screen -->
-        <div id="menu-screen" class="screen">
-            <p>Welcome! Choose your game mode:</p>
-            <button id="mode-decade">Decade Mode</button>
-            <button id="mode-year">Year Mode</button>
-            <button id="mode-month">Month Mode</button>
-            <button id="mode-day">Day Mode</button>
+        <!-- Mode Selection Screen -->
+        <div id="mode-screen" class="screen">
+            <p>Select Game Mode:</p>
+            <button id="standard-mode">Standard Mode</button>
+            <button id="time-limit-mode">Time Limit Mode</button>
+        </div>
+
+        <!-- Timeframe Selection Screen -->
+        <div id="timeframe-screen" class="screen" style="display: none;">
+            <p>Select Timeframe:</p>
+            <button id="timeframe-decade">Decade</button>
+            <button id="timeframe-year">Year</button>
+            <button id="timeframe-month">Month</button>
+            <button id="timeframe-day">Day</button>
+            <button id="back-to-mode" class="back-button">Back</button>
         </div>
 
         <!-- Game Screen -->
@@ -40,8 +48,9 @@
             <div class="score-section">
                 <p>Score: <span id="score">0</span></p>
                 <p>Streak: <span id="streak">0</span></p>
-                <p>Multiplier: <span id="multiplier">1.0</span>x</p>
+                <p>Multiplier: <span id="multiplier">1.0</span><span id="time-limit-multiplier"></span></p>
                 <p>Hints Used: <span id="hints-used">0</span></p>
+                <p id="time-left" style="display: none;">Time Left: <span id="time-remaining">30</span>s</p>
             </div>
 
             <div id="feedback" class="feedback"></div>
