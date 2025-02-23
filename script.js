@@ -7,6 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const modeMonthBtn = document.getElementById("mode-month");
     const modeDayBtn = document.getElementById("mode-day");
     const modeDisplay = document.getElementById("mode-display");
+    const articleContainer = document.getElementById("article-container");
     const articleText = document.getElementById("article-text");
     const inputContainer = document.getElementById("input-container");
     const inputLabel = document.getElementById("input-label");
@@ -43,6 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
         multiplier = 1.0;
         adUsed = false;
         submitButton.disabled = false;
+        feedback.textContent = "";
         setupInput(mode);
         fetchArticle();
         updateDisplay();
@@ -121,6 +123,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 text = redactText(text);
                 articleText.innerHTML = text;
 
+                articleContainer.classList.remove("era-1800s", "era-1900s", "era-2000s");
+                if (correctDate.year < 1900) {
+                    articleContainer.classList.add("era-1800s");
+                } else if (correctDate.year < 2000) {
+                    articleContainer.classList.add("era-1900s");
+                } else {
+                    articleContainer.classList.add("era-2000s");
+                }
+
                 const input = document.getElementById("guess-input");
                 if (currentMode === "decade") {
                     input.min = correctDate.decade - 10;
@@ -179,11 +190,17 @@ document.addEventListener("DOMContentLoaded", () => {
             updateDisplay();
             setTimeout(() => {
                 feedback.textContent = "";
+                feedback.className = "feedback";
                 fetchArticle();
                 input.value = "";
-            }, 1500);
+            }, 3000);
         } else {
-            endGame();
+            feedback.textContent = "Incorrect!";
+            feedback.className = "feedback incorrect";
+            setTimeout(() => {
+                feedback.className = "feedback";
+                endGame();
+            }, 500);
         }
     });
 
@@ -198,11 +215,23 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
-    // Update score
+    // Update score with mode-specific multipliers and caps
     function updateScore() {
         const basePoints = { decade: 1, year: 2, month: 3, day: 4 }[currentMode];
+        const multiplierIncrement = {
+            decade: 0.05, // Easiest, smallest boost
+            year: 0.15,   // Moderate increase
+            month: 0.25,  // Bigger jump
+            day: 0.40     // Hardest, biggest boost
+        }[currentMode];
+        const maxMultiplier = {
+            decade: 2.5,  // Lowest cap
+            year: 3.0,
+            month: 3.5,
+            day: 4.0      // Highest cap
+        }[currentMode];
         streak++;
-        multiplier = Math.min(1.0 + streak * 0.1, 2.0);
+        multiplier = Math.min(1.0 + streak * multiplierIncrement, maxMultiplier);
         score += basePoints * multiplier;
     }
 
@@ -210,7 +239,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function updateDisplay() {
         scoreDisplay.textContent = Math.round(score);
         streakDisplay.textContent = streak;
-        multiplierDisplay.textContent = multiplier.toFixed(1);
+        multiplierDisplay.textContent = multiplier.toFixed(2);
     }
 
     // End game
@@ -248,7 +277,6 @@ document.addEventListener("DOMContentLoaded", () => {
             gameScreen.style.display = "block";
             fetchArticle();
             console.log("Ad watched - continuing game");
-            // Simulate ad watch (in reality, integrate ad API here)
         }
     });
 
