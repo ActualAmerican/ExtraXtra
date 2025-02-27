@@ -12,6 +12,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const backToModeBtn = document.getElementById("back-to-mode");
     const modeDisplay = document.getElementById("mode-display");
     const articleContainer = document.getElementById("article-container");
+    const articleImg = document.getElementById("article-img");
+    const articlePdf = document.getElementById("article-pdf");
     const articleText = document.getElementById("article-text");
     const inputContainer = document.getElementById("input-container");
     const inputLabel = document.getElementById("input-label");
@@ -25,6 +27,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const timeLeftDisplay = document.getElementById("time-left");
     const timeRemainingDisplay = document.getElementById("time-remaining");
     const feedback = document.getElementById("feedback");
+    const debugAnswer = document.getElementById("debug-answer");
     const endgameMessage = document.getElementById("endgame-message");
     const endgameScore = document.getElementById("endgame-score");
     const personalBestDisplay = document.getElementById("personal-best");
@@ -47,6 +50,40 @@ document.addEventListener("DOMContentLoaded", () => {
     let timeRemaining = 30;
     let timerInterval = null;
     let personalBest = localStorage.getItem("personalBest") ? parseInt(localStorage.getItem("personalBest")) : 0;
+    let articleQueue = [];
+
+    // Curated set
+    const articleSet = [
+        { id: "1914-06-29", date: "1914-06-29", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1914-06-29/ed-1/seq-1.pdf" },
+        { id: "1929-10-29", date: "1929-10-29", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1929-10-29/ed-1/seq-1.pdf" },
+        { id: "1933-03-04", date: "1933-03-04", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1933-03-04/ed-1/seq-1.pdf" },
+        { id: "1941-12-08", date: "1941-12-08", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1941-12-08/ed-1/seq-1.pdf" },
+        { id: "1955-12-01", date: "1955-12-01", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1955-12-01/ed-1/seq-1.pdf" },
+        { id: "1963-11-23", date: "1963-11-23", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1963-11-23/ed-1/seq-1.pdf" },
+        { id: "1969-07-21", date: "1969-07-21", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1969-07-21/ed-1/seq-1.pdf" },
+        { id: "1918-11-11", date: "1918-11-11", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1918-11-11/ed-1/seq-1.pdf" },
+        { id: "1920-08-26", date: "1920-08-26", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1920-08-26/ed-1/seq-1.pdf" },
+        { id: "1945-08-15", date: "1945-08-15", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1945-08-15/ed-1/seq-1.pdf" }
+    ];
+
+    // PDF to Image Conversion
+    async function preloadPDF(pdfUrl) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js";
+        try {
+            const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
+            const page = await pdf.getPage(1);
+            const canvas = document.createElement("canvas");
+            const context = canvas.getContext("2d");
+            const viewport = page.getViewport({ scale: 2.0 });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+            await page.render({ canvasContext: context, viewport }).promise;
+            return canvas.toDataURL("image/jpeg", 0.8);
+        } catch (e) {
+            console.error("PDF load failed:", e);
+            return null;
+        }
+    }
 
     // Show timeframe screen
     function showTimeframeScreen(mode) {
@@ -80,14 +117,9 @@ document.addEventListener("DOMContentLoaded", () => {
         console.log(`Game started in ${currentMode} ${timeframe} mode`);
     }
 
-    // Get base multiplier based on timeframe
+    // Get base multiplier
     function getBaseMultiplier() {
-        return {
-            decade: 1.0,
-            year: 1.5,
-            month: 2.0,
-            day: 2.5
-        }[currentTimeframe];
+        return { decade: 1.0, year: 1.5, month: 2.0, day: 2.5 }[currentTimeframe];
     }
 
     // Setup input
@@ -151,67 +183,81 @@ document.addEventListener("DOMContentLoaded", () => {
     // Fetch article
     async function fetchArticle() {
         try {
-            const response = await fetch("https://chroniclingamerica.loc.gov/search/pages/results/?format=json&proximity=5&rows=1&sort=date");
-            const data = await response.json();
-            console.log("API Response:", data);
-
-            if (data.items && data.items.length > 0) {
-                const item = data.items[0];
-                const date = item.date;
-                correctDate = {
-                    year: parseInt(date.substring(0, 4)),
-                    month: parseInt(date.substring(4, 6)),
-                    day: parseInt(date.substring(6, 8)),
-                    decade: Math.floor(parseInt(date.substring(0, 4)) / 10) * 10
-                };
-                console.log("Correct Date:", correctDate);
-
-                let text = item.ocr_eng || "No text available.";
-                text = redactText(text);
-                articleText.innerHTML = text;
-
-                articleContainer.classList.remove("era-1800s", "era-1900s", "era-2000s");
-                if (correctDate.year < 1900) {
-                    articleContainer.classList.add("era-1800s");
-                } else if (correctDate.year < 2000) {
-                    articleContainer.classList.add("era-1900s");
-                } else {
-                    articleContainer.classList.add("era-2000s");
-                }
-
-                const input = document.getElementById("guess-input");
-                if (currentTimeframe === "decade") {
-                    input.min = correctDate.decade - 10;
-                    input.max = correctDate.decade + 10;
-                } else if (currentTimeframe === "year") {
-                    input.min = correctDate.year - 5;
-                    input.max = correctDate.year + 5;
-                }
-                hintButton.disabled = hintsUsed >= 5;
-                hintLocked = false;
-                timeRemaining = 30;
-                updateDisplay();
-                if (currentMode === "time-limit") startTimer();
-                updateHintButtonText();
-            } else {
-                articleText.textContent = "Failed to load article. Try refreshing.";
+            if (!articleQueue.length) {
+                articleQueue = [...articleSet]; // Clone and shuffle
+                articleQueue.sort(() => Math.random() - 0.5);
             }
+            const article = articleQueue.shift();
+
+            correctDate = {
+                year: parseInt(article.date.substring(0, 4)),
+                month: article.date.length >= 7 ? parseInt(article.date.substring(5, 7)) : 1,
+                day: article.date.length >= 10 ? parseInt(article.date.substring(8, 10)) : 1,
+                decade: Math.floor(parseInt(article.date.substring(0, 4)) / 10) * 10
+            };
+            console.log("Selected Article:", article);
+
+            const imgData = await preloadPDF(article.pdf);
+            if (imgData) {
+                articleImg.src = imgData;
+                articleImg.style.display = "block";
+                articlePdf.style.display = "none";
+                articleText.style.display = "none";
+            } else {
+                articlePdf.src = article.pdf;
+                articlePdf.style.display = "block";
+                articleImg.style.display = "none";
+                articleText.style.display = "none";
+            }
+
+            articleContainer.classList.remove("era-1800s", "era-1900s", "era-2000s");
+            if (correctDate.year < 1900) articleContainer.classList.add("era-1800s");
+            else if (correctDate.year < 2000) articleContainer.classList.add("era-1900s");
+            else articleContainer.classList.add("era-2000s");
+
+            const input = document.getElementById("guess-input");
+            if (currentTimeframe === "decade") {
+                input.min = correctDate.decade - 10;
+                input.max = correctDate.decade + 10;
+            } else if (currentTimeframe === "year") {
+                input.min = correctDate.year - 5;
+                input.max = correctDate.year + 5;
+            }
+            hintButton.disabled = hintsUsed >= 5;
+            hintLocked = false;
+            timeRemaining = 30;
+            updateDisplay();
+            if (currentMode === "time-limit") startTimer();
+            updateHintButtonText();
+
+            if (articleQueue.length) preloadPDF(articleQueue[0].pdf); // Preload next
         } catch (error) {
-            console.error("Error fetching article:", error);
-            articleText.textContent = "Error loading article.";
+            console.error("Error loading article:", error);
+            articleText.innerHTML = "Error loading article: " + error.message;
+            articleImg.style.display = "none";
+            articlePdf.style.display = "none";
+            articleText.style.display = "block";
         }
     }
 
+    // Zoom controls
+    window.zoomIn = function() {
+        let scale = parseFloat(articleImg.style.transform.replace("scale(", "").replace(")", "") || 1);
+        scale = Math.min(3, scale + 0.2);
+        requestAnimationFrame(() => articleImg.style.transform = `scale(${scale})`);
+    };
+    window.zoomOut = function() {
+        let scale = parseFloat(articleImg.style.transform.replace("scale(", "").replace(")", "") || 1);
+        scale = Math.max(0.5, scale - 0.2);
+        requestAnimationFrame(() => articleImg.style.transform = `scale(${scale})`);
+    };
+
     // Redact text
     function redactText(text) {
-        text = text.replace(/\b(18|19|20)\d{2}\b/g, (match) => {
-            const width = match.length * 0.6 + "em";
-            return `<span class="redaction-bar" style="width: ${width}"></span>`;
-        });
-        text = text.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, (match) => {
-            const width = match.length * 0.6 + "em";
-            return `<span class="redaction-bar" style="width: ${width}"></span>`;
-        });
+        text = text.replace(/\b(18|19|20)\d{2}\b/g, "[DATE]");
+        text = text.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, "[MONTH]");
+        text = text.replace(/\b(Mr|Mrs|Ms|Dr|President|King|Queen)\.?\s+[A-Z][a-z]+\b/g, "[NAME]");
+        text = text.replace(/\b(London|Paris|New York|Washington)\b/g, "[PLACE]");
         return text;
     }
 
@@ -283,7 +329,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Hint button logic
     hintButton.addEventListener("click", () => {
-        const hintCost = 200 + hintsUsed * 100; // Starts at 200, increases by 100
+        const hintCost = 200 + hintsUsed * 100;
         if (hintsUsed < 5 && score >= hintCost && !hintLocked) {
             hintsUsed++;
             score -= hintCost;
@@ -291,19 +337,12 @@ document.addEventListener("DOMContentLoaded", () => {
             hintLocked = true;
             let hintText;
             switch (currentTimeframe) {
-                case "decade":
-                    hintText = `Hint: The decade is between ${correctDate.decade - 20} and ${correctDate.decade + 20}. (-${hintCost} points)`;
-                    break;
-                case "year":
-                    hintText = `Hint: The year is between ${correctDate.year - 5} and ${correctDate.year + 5}. (-${hintCost} points)`;
-                    break;
-                case "month":
-                    hintText = `Hint: The year is ${correctDate.year}. (-${hintCost} points)`;
-                    break;
+                case "decade": hintText = `Hint: The decade is between ${correctDate.decade - 20} and ${correctDate.decade + 20}. (-${hintCost} points)`; break;
+                case "year": hintText = `Hint: The year is between ${correctDate.year - 5} and ${correctDate.year + 5}. (-${hintCost} points)`; break;
+                case "month": hintText = `Hint: The year is ${correctDate.year}. (-${hintCost} points)`; break;
                 case "day":
                     const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                    hintText = `Hint: The date is in ${monthNames[correctDate.month - 1]} ${correctDate.year}. (-${hintCost} points)`;
-                    break;
+                    hintText = `Hint: The date is in ${monthNames[correctDate.month - 1]} ${correctDate.year}. (-${hintCost} points)`; break;
             }
             feedback.textContent = hintText;
             feedback.className = "feedback hint";
@@ -344,20 +383,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return false;
     }
 
-    // Update score with mode-specific multipliers and caps
+    // Update score
     function updateScore() {
-        const basePoints = { 
-            decade: 100,  // Scaled 100x
-            year: 200,    // Scaled 100x
-            month: 300,   // Scaled 100x
-            day: 400      // Scaled 100x
-        }[currentTimeframe];
-        const maxBaseMultiplier = {
-            decade: 5.0,
-            year: 8.0,
-            month: 10.0,
-            day: 15.0
-        }[currentTimeframe];
+        const basePoints = { decade: 100, year: 200, month: 300, day: 400 }[currentTimeframe];
+        const maxBaseMultiplier = { decade: 5.0, year: 8.0, month: 10.0, day: 15.0 }[currentTimeframe];
         streak++;
         baseMultiplier = Math.min(getBaseMultiplier() + (streak - 1) * 0.1, maxBaseMultiplier);
         multiplier = currentMode === "time-limit" ? baseMultiplier * 2 : baseMultiplier;
@@ -375,6 +404,7 @@ document.addEventListener("DOMContentLoaded", () => {
         hintsUsedDisplay.textContent = hintsUsed === 5 ? "5 (MAX)" : hintsUsed;
         timeRemainingDisplay.textContent = timeRemaining;
         timeLeftDisplay.style.display = currentMode === "time-limit" ? "block" : "none";
+        debugAnswer.textContent = correctDate ? `Debug Answer: ${correctDate.year}-${String(correctDate.month).padStart(2, '0')}-${String(correctDate.day).padStart(2, '0')}` : "Debug Answer: Loading...";
     }
 
     // End game
@@ -400,11 +430,8 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     shareButton.addEventListener("click", () => {
         const text = `I scored ${Math.round(score)} in ExtraXtra ${currentMode} ${currentTimeframe} mode! Beat that!`;
-        if (navigator.share) {
-            navigator.share({ text }).catch(err => console.error("Share failed:", err));
-        } else {
-            alert("Share not supported. Copy this: " + text);
-        }
+        if (navigator.share) navigator.share({ text }).catch(err => console.error("Share failed:", err));
+        else alert("Share not supported. Copy this: " + text);
     });
     watchAdButton.addEventListener("click", () => {
         if (!adUsed) {

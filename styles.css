@@ -93,17 +93,24 @@ h2 {
     line-height: 40px;
 }
 
+.article-wrapper {
+    display: flex;
+    align-items: flex-start;
+    margin: 20px 0;
+}
+
 .article {
     background: rgba(245, 245, 220, 0.9);
     padding: 15px;
     border: 1px dashed #4a4a4a;
-    margin: 20px 0;
-    max-height: 300px;
+    height: 600px;
     overflow-y: auto;
     font-size: 1.1em;
     line-height: 1.6;
     color: #1a1a1a;
     transition: filter 0.3s ease;
+    position: relative;
+    flex: 1;
 }
 
 .article.era-1800s {
@@ -116,6 +123,41 @@ h2 {
 
 .article.era-2000s {
     filter: none;
+}
+
+#article-img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    transition: transform 0.3s ease;
+}
+
+#article-pdf {
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+.zoom-controls {
+    width: 50px;
+    margin-left: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.zoom-controls button {
+    width: 100%;
+    height: 40px;
+    margin: 0;
+    background-color: #4a4a4a;
+    color: #e0e0e0;
+    border: 1px solid #ff4d4d;
+}
+
+.zoom-controls button:hover:not(:disabled) {
+    background-color: #ff4d4d;
+    color: #1a1a1a;
 }
 
 .redaction-bar {
@@ -191,6 +233,18 @@ input[type="month"], input[type="date"] {
 .feedback.hint {
     color: #e0e0e0;
     animation: type-correct 0.5s steps(20, end);
+}
+
+.debug-answer {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.9em;
+    color: #666;
+    background: rgba(0, 0, 0, 0.7);
+    padding: 5px 10px;
+    border-radius: 3px;
 }
 
 @keyframes type-correct {

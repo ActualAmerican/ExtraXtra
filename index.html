@@ -32,8 +32,16 @@
         <div id="game-screen" class="screen" style="display: none;">
             <p>Guess the <span id="mode-display">decade</span> of the article!</p>
             
-            <div id="article-container" class="article">
-                <p id="article-text">Loading article...</p>
+            <div class="article-wrapper">
+                <div id="article-container" class="article">
+                    <img id="article-img" src="" alt="Historical Article" style="display: none;">
+                    <iframe id="article-pdf" style="display: none;"></iframe>
+                    <div id="article-text"></div>
+                </div>
+                <div class="zoom-controls">
+                    <button onclick="zoomIn()">+</button>
+                    <button onclick="zoomOut()">-</button>
+                </div>
             </div>
 
             <div class="input-section">
@@ -42,7 +50,7 @@
                     <input type="number" id="guess-input-decade" step="10" min="1800" max="2020" placeholder="e.g., 1920">
                 </div>
                 <button id="submit-guess">Submit Guess</button>
-                <button id="hint-button">Hint (-2 points)</button>
+                <button id="hint-button">Hint (-200 points)</button>
             </div>
 
             <div class="score-section">
@@ -54,6 +62,7 @@
             </div>
 
             <div id="feedback" class="feedback"></div>
+            <div id="debug-answer" class="debug-answer"></div>
         </div>
 
         <!-- Endgame Screen -->
@@ -71,6 +80,9 @@
         </div>
     </div>
 
+    <!-- External Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
     <script src="script.js"></script>
+    <script>if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");</script>
 </body>
 </html>
