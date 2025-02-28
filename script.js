@@ -12,8 +12,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const backToModeBtn = document.getElementById("back-to-mode");
     const modeDisplay = document.getElementById("mode-display");
     const articleContainer = document.getElementById("article-container");
-    const articleImg = document.getElementById("article-img");
-    const articlePdf = document.getElementById("article-pdf");
     const articleText = document.getElementById("article-text");
     const inputContainer = document.getElementById("input-container");
     const inputLabel = document.getElementById("input-label");
@@ -52,48 +50,59 @@ document.addEventListener("DOMContentLoaded", () => {
     let personalBest = localStorage.getItem("personalBest") ? parseInt(localStorage.getItem("personalBest")) : 0;
     let articleQueue = [];
 
-    // Curated set
-    const articleSet = [
-        { id: "1914-06-29", date: "1914-06-29", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1914-06-29/ed-1/seq-1.pdf" },
-        { id: "1929-10-29", date: "1929-10-29", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1929-10-29/ed-1/seq-1.pdf" },
-        { id: "1933-03-04", date: "1933-03-04", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1933-03-04/ed-1/seq-1.pdf" },
-        { id: "1941-12-08", date: "1941-12-08", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1941-12-08/ed-1/seq-1.pdf" },
-        { id: "1955-12-01", date: "1955-12-01", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1955-12-01/ed-1/seq-1.pdf" },
-        { id: "1963-11-23", date: "1963-11-23", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1963-11-23/ed-1/seq-1.pdf" },
-        { id: "1969-07-21", date: "1969-07-21", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1969-07-21/ed-1/seq-1.pdf" },
-        { id: "1918-11-11", date: "1918-11-11", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83030214/1918-11-11/ed-1/seq-1.pdf" },
-        { id: "1920-08-26", date: "1920-08-26", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1920-08-26/ed-1/seq-1.pdf" },
-        { id: "1945-08-15", date: "1945-08-15", pdf: "https://chroniclingamerica.loc.gov/lccn/sn83045462/1945-08-15/ed-1/seq-1.pdf" }
-    ];
-
-    // PDF to Image Conversion
-    async function preloadPDF(pdfUrl) {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.worker.min.js";
+    // Fetch a single random article from the Chronicling America API
+    async function fetchRandomArticle() {
         try {
-            const pdf = await pdfjsLib.getDocument(pdfUrl).promise;
-            const page = await pdf.getPage(1);
-            const canvas = document.createElement("canvas");
-            const context = canvas.getContext("2d");
-            const viewport = page.getViewport({ scale: 2.0 });
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            await page.render({ canvasContext: context, viewport }).promise;
-            return canvas.toDataURL("image/jpeg", 0.8);
-        } catch (e) {
-            console.error("PDF load failed:", e);
+            const proxyUrl = "https://api.allorigins.win/get?url=";
+            const apiUrl = encodeURIComponent("https://chroniclingamerica.loc.gov/search/pages/results/?rows=1&format=json&sort=random");
+            const response = await fetch(proxyUrl + apiUrl);
+            const data = await response.json();
+            const articleData = JSON.parse(data.contents);
+
+            if (!articleData.items || articleData.items.length === 0) {
+                throw new Error("No articles found");
+            }
+
+            const article = articleData.items[0];
+            const date = article.date;
+            const year = parseInt(date.substring(0, 4));
+            const month = parseInt(date.substring(4, 6));
+            const day = parseInt(date.substring(6, 8));
+            const textUrl = `https://chroniclingamerica.loc.gov${article.url.replace(".json", "/ocr.txt")}`;
+
+            const textResponse = await fetch(proxyUrl + encodeURIComponent(textUrl));
+            const textData = await textResponse.json();
+            let text = textData.contents;
+
+            // Redact sensitive information
+            text = redactText(text);
+
+            return {
+                text: text,
+                correctDate: { year, month, day, decade: Math.floor(year / 10) * 10 }
+            };
+        } catch (error) {
+            console.error("Error fetching article:", error);
             return null;
         }
     }
 
-    // Show timeframe screen
+    // Preload articles into the queue in the background
+    async function preloadArticles(count = 5) {
+        const promises = Array.from({ length: count }, fetchRandomArticle);
+        const articles = await Promise.all(promises);
+        articleQueue.push(...articles.filter((article) => article !== null));
+    }
+
+    // Show timeframe selection screen
     function showTimeframeScreen(mode) {
         currentMode = mode;
         modeScreen.style.display = "none";
         timeframeScreen.style.display = "block";
     }
 
-    // Start game
-    function startGame(timeframe) {
+    // Start the game
+    async function startGame(timeframe) {
         currentTimeframe = timeframe;
         modeDisplay.textContent = `${currentMode === "time-limit" ? "Time Limit " : "Standard "}${timeframe}`;
         timeframeScreen.style.display = "none";
@@ -107,70 +116,65 @@ document.addEventListener("DOMContentLoaded", () => {
         hintsUsed = 0;
         hintLocked = false;
         timeRemaining = 30;
+        articleQueue = [];
         submitButton.disabled = false;
         hintButton.disabled = false;
         feedback.textContent = "";
         updateDisplay();
         setupInput(timeframe);
+        await preloadArticles(5); // Initial batch of 5 articles
         fetchArticle();
         if (currentMode === "time-limit") startTimer();
         console.log(`Game started in ${currentMode} ${timeframe} mode`);
     }
 
-    // Get base multiplier
+    // Get base multiplier based on timeframe
     function getBaseMultiplier() {
         return { decade: 1.0, year: 1.5, month: 2.0, day: 2.5 }[currentTimeframe];
     }
 
-    // Setup input
+    // Setup input field based on timeframe
     function setupInput(timeframe) {
         inputContainer.innerHTML = "";
         let input;
         switch (timeframe) {
             case "decade":
-                input = document.createElement("input");
-                input.type = "number";
-                input.id = "guess-input";
-                input.step = "10";
-                input.min = "1800";
-                input.max = "2020";
-                input.placeholder = "e.g., 1920";
+                input = createInput("number", "guess-input", "10", "1800", "2020", "e.g., 1920");
                 inputLabel.textContent = "Enter the decade (e.g., 1920):";
                 break;
             case "year":
-                input = document.createElement("input");
-                input.type = "number";
-                input.id = "guess-input";
-                input.min = "1800";
-                input.max = "2020";
-                input.placeholder = "e.g., 1923";
+                input = createInput("number", "guess-input", "1", "1800", "2020", "e.g., 1923");
                 inputLabel.textContent = "Enter the year (e.g., 1923):";
                 break;
             case "month":
-                input = document.createElement("input");
-                input.type = "month";
-                input.id = "guess-input";
-                input.min = "1800-01";
-                input.max = "2020-12";
+                input = createInput("month", "guess-input", null, "1800-01", "2020-12");
                 inputLabel.textContent = "Enter the year and month (e.g., 1923-08):";
                 break;
             case "day":
-                input = document.createElement("input");
-                input.type = "date";
-                input.id = "guess-input";
-                input.min = "1800-01-01";
-                input.max = "2020-12-31";
+                input = createInput("date", "guess-input", null, "1800-01-01", "2020-12-31");
                 inputLabel.textContent = "Enter the full date (e.g., 1923-08-15):";
                 break;
         }
         inputContainer.appendChild(input);
     }
 
-    // Mode listeners
+    // Helper to create input elements
+    function createInput(type, id, step, min, max, placeholder) {
+        const input = document.createElement("input");
+        input.type = type;
+        input.id = id;
+        if (step) input.step = step;
+        if (min) input.min = min;
+        if (max) input.max = max;
+        if (placeholder) input.placeholder = placeholder;
+        return input;
+    }
+
+    // Event listeners for mode selection
     standardModeBtn.addEventListener("click", () => showTimeframeScreen("standard"));
     timeLimitModeBtn.addEventListener("click", () => showTimeframeScreen("time-limit"));
 
-    // Timeframe listeners
+    // Event listeners for timeframe selection
     timeframeDecadeBtn.addEventListener("click", () => startGame("decade"));
     timeframeYearBtn.addEventListener("click", () => startGame("year"));
     timeframeMonthBtn.addEventListener("click", () => startGame("month"));
@@ -180,88 +184,49 @@ document.addEventListener("DOMContentLoaded", () => {
         modeScreen.style.display = "block";
     });
 
-    // Fetch article
+    // Fetch and display the next article
     async function fetchArticle() {
-        try {
-            if (!articleQueue.length) {
-                articleQueue = [...articleSet]; // Clone and shuffle
-                articleQueue.sort(() => Math.random() - 0.5);
-            }
+        if (articleQueue.length <= 2) {
+            preloadArticles(5); // Replenish queue when low
+        }
+        if (articleQueue.length > 0) {
             const article = articleQueue.shift();
-
-            correctDate = {
-                year: parseInt(article.date.substring(0, 4)),
-                month: article.date.length >= 7 ? parseInt(article.date.substring(5, 7)) : 1,
-                day: article.date.length >= 10 ? parseInt(article.date.substring(8, 10)) : 1,
-                decade: Math.floor(parseInt(article.date.substring(0, 4)) / 10) * 10
-            };
-            console.log("Selected Article:", article);
-
-            const imgData = await preloadPDF(article.pdf);
-            if (imgData) {
-                articleImg.src = imgData;
-                articleImg.style.display = "block";
-                articlePdf.style.display = "none";
-                articleText.style.display = "none";
-            } else {
-                articlePdf.src = article.pdf;
-                articlePdf.style.display = "block";
-                articleImg.style.display = "none";
-                articleText.style.display = "none";
-            }
+            correctDate = article.correctDate;
+            articleText.innerHTML = article.text.replace(/\n/g, "<br>");
+            articleText.style.display = "block";
 
             articleContainer.classList.remove("era-1800s", "era-1900s", "era-2000s");
-            if (correctDate.year < 1900) articleContainer.classList.add("era-1800s");
-            else if (correctDate.year < 2000) articleContainer.classList.add("era-1900s");
-            else articleContainer.classList.add("era-2000s");
+            articleContainer.classList.add(correctDate.year < 1900 ? "era-1800s" : correctDate.year < 2000 ? "era-1900s" : "era-2000s");
 
-            const input = document.getElementById("guess-input");
-            if (currentTimeframe === "decade") {
-                input.min = correctDate.decade - 10;
-                input.max = correctDate.decade + 10;
-            } else if (currentTimeframe === "year") {
-                input.min = correctDate.year - 5;
-                input.max = correctDate.year + 5;
-            }
             hintButton.disabled = hintsUsed >= 5;
             hintLocked = false;
             timeRemaining = 30;
             updateDisplay();
             if (currentMode === "time-limit") startTimer();
             updateHintButtonText();
-
-            if (articleQueue.length) preloadPDF(articleQueue[0].pdf); // Preload next
-        } catch (error) {
-            console.error("Error loading article:", error);
-            articleText.innerHTML = "Error loading article: " + error.message;
-            articleImg.style.display = "none";
-            articlePdf.style.display = "none";
-            articleText.style.display = "block";
+        } else {
+            articleText.innerHTML = "Loading article...";
+            const article = await fetchRandomArticle();
+            if (article) {
+                articleQueue.push(article);
+                fetchArticle();
+            } else {
+                articleText.innerHTML = "Error loading article. Please try again.";
+            }
         }
     }
 
-    // Zoom controls
-    window.zoomIn = function() {
-        let scale = parseFloat(articleImg.style.transform.replace("scale(", "").replace(")", "") || 1);
-        scale = Math.min(3, scale + 0.2);
-        requestAnimationFrame(() => articleImg.style.transform = `scale(${scale})`);
-    };
-    window.zoomOut = function() {
-        let scale = parseFloat(articleImg.style.transform.replace("scale(", "").replace(")", "") || 1);
-        scale = Math.max(0.5, scale - 0.2);
-        requestAnimationFrame(() => articleImg.style.transform = `scale(${scale})`);
-    };
-
-    // Redact text
+    // Redact sensitive information with black bar styling
     function redactText(text) {
-        text = text.replace(/\b(18|19|20)\d{2}\b/g, "[DATE]");
-        text = text.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, "[MONTH]");
-        text = text.replace(/\b(Mr|Mrs|Ms|Dr|President|King|Queen)\.?\s+[A-Z][a-z]+\b/g, "[NAME]");
-        text = text.replace(/\b(London|Paris|New York|Washington)\b/g, "[PLACE]");
+        text = text.replace(/\b(18|19|20)\d{2}\b/g, '<span class="redacted">[DATE]</span>');
+        text = text.replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/gi, '<span class="redacted">[MONTH]</span>');
+        text = text.replace(/\b\d{1,2}(st|nd|rd|th)?\b/g, '<span class="redacted">[DAY]</span>');
+        text = text.replace(/\b(Mr|Mrs|Ms|Dr|President|King|Queen)\.?\s+[A-Z][a-z]+\b/g, '<span class="redacted">[NAME]</span>');
+        text = text.replace(/\b(London|Paris|New York|Washington)\b/g, '<span class="redacted">[PLACE]</span>');
         return text;
     }
 
-    // Start timer
+    // Start the timer for time-limit mode
     function startTimer() {
         clearInterval(timerInterval);
         timeLeftDisplay.style.display = "block";
@@ -272,31 +237,16 @@ document.addEventListener("DOMContentLoaded", () => {
                 clearInterval(timerInterval);
                 feedback.textContent = "Time's up!";
                 feedback.className = "feedback incorrect";
-                setTimeout(() => {
-                    feedback.className = "feedback";
-                    hintLocked = false;
-                    endGame();
-                }, 500);
+                setTimeout(endGame, 500);
             }
         }, 1000);
     }
 
-    // Handle guess
+    // Handle guess submission
     submitButton.addEventListener("click", () => {
         const input = document.getElementById("guess-input");
-        let guess;
-        if (currentTimeframe === "month") {
-            const [year, month] = input.value.split("-");
-            guess = { year: parseInt(year), month: parseInt(month) };
-        } else if (currentTimeframe === "day") {
-            const [year, month, day] = input.value.split("-");
-            guess = { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
-        } else {
-            guess = parseInt(input.value);
-        }
-        console.log("User Guess:", guess);
-
-        if (!guess || (typeof guess === "object" && (isNaN(guess.year) || (currentTimeframe !== "year" && isNaN(guess.month))))) {
+        let guess = parseGuess(input.value);
+        if (!guess) {
             feedback.textContent = "Please enter a valid guess.";
             feedback.className = "feedback incorrect";
             return;
@@ -304,67 +254,93 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (checkGuess(guess)) {
             updateScore();
-            feedback.textContent = "Correct! Onward to the next article.";
+            feedback.textContent = "Correct! Next article loading...";
             feedback.className = "feedback correct";
             clearInterval(timerInterval);
-            updateDisplay();
             setTimeout(() => {
                 feedback.textContent = "";
                 feedback.className = "feedback";
                 hintLocked = false;
                 fetchArticle();
                 input.value = "";
-            }, 3000);
+            }, 2000);
         } else {
             feedback.textContent = "Incorrect!";
             feedback.className = "feedback incorrect";
             clearInterval(timerInterval);
-            setTimeout(() => {
-                feedback.className = "feedback";
-                hintLocked = false;
-                endGame();
-            }, 500);
+            setTimeout(endGame, 500);
         }
     });
 
-    // Hint button logic
+    // Parse user input based on timeframe
+    function parseGuess(value) {
+        if (!value) return null;
+        if (currentTimeframe === "decade" || currentTimeframe === "year") return parseInt(value);
+        if (currentTimeframe === "month") {
+            const [year, month] = value.split("-");
+            return { year: parseInt(year), month: parseInt(month) };
+        }
+        if (currentTimeframe === "day") {
+            const [year, month, day] = value.split("-");
+            return { year: parseInt(year), month: parseInt(month), day: parseInt(day) };
+        }
+        return null;
+    }
+
+    // Check if the guess is correct
+    function checkGuess(guess) {
+        switch (currentTimeframe) {
+            case "decade": return guess === correctDate.decade;
+            case "year": return guess === correctDate.year;
+            case "month": return guess.year === correctDate.year && guess.month === correctDate.month;
+            case "day": return guess.year === correctDate.year && guess.month === correctDate.month && guess.day === correctDate.day;
+            default: return false;
+        }
+    }
+
+    // Update the score
+    function updateScore() {
+        const basePoints = { decade: 100, year: 200, month: 300, day: 400 }[currentTimeframe];
+        streak++;
+        baseMultiplier = Math.min(getBaseMultiplier() + (streak - 1) * 0.1, { decade: 5.0, year: 8.0, month: 10.0, day: 15.0 }[currentTimeframe]);
+        multiplier = currentMode === "time-limit" ? baseMultiplier * 2 : baseMultiplier;
+        score += basePoints * multiplier;
+        updateDisplay();
+    }
+
+    // Handle hint requests
     hintButton.addEventListener("click", () => {
         const hintCost = 200 + hintsUsed * 100;
-        if (hintsUsed < 5 && score >= hintCost && !hintLocked) {
+        if (hintsUsed >= 5) {
+            feedback.textContent = "No more hints available!";
+            feedback.className = "feedback";
+        } else if (score < hintCost) {
+            feedback.textContent = `Not enough points for hint (${hintCost} required)!`;
+            feedback.className = "feedback";
+        } else if (!hintLocked) {
             hintsUsed++;
             score -= hintCost;
             hintButton.disabled = hintsUsed >= 5;
             hintLocked = true;
-            let hintText;
-            switch (currentTimeframe) {
-                case "decade": hintText = `Hint: The decade is between ${correctDate.decade - 20} and ${correctDate.decade + 20}. (-${hintCost} points)`; break;
-                case "year": hintText = `Hint: The year is between ${correctDate.year - 5} and ${correctDate.year + 5}. (-${hintCost} points)`; break;
-                case "month": hintText = `Hint: The year is ${correctDate.year}. (-${hintCost} points)`; break;
-                case "day":
-                    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                    hintText = `Hint: The date is in ${monthNames[correctDate.month - 1]} ${correctDate.year}. (-${hintCost} points)`; break;
-            }
+            const hintText = generateHint();
             feedback.textContent = hintText;
             feedback.className = "feedback hint";
             lastHintText = hintText;
             updateDisplay();
             updateHintButtonText();
-            console.log(`Hint ${hintsUsed} used: ${hintText}, Cost: ${hintCost} points`);
-        } else if (hintsUsed >= 5) {
-            feedback.textContent = "No more hints available!";
-            feedback.className = "feedback";
-        } else if (hintLocked) {
-            feedback.textContent = "Hint locked until next guess!";
-            feedback.className = "feedback";
-            setTimeout(() => {
-                feedback.textContent = lastHintText;
-                feedback.className = "feedback hint";
-            }, 1000);
-        } else {
-            feedback.textContent = `Not enough points for hint (${hintCost} required)!`;
-            feedback.className = "feedback";
         }
     });
+
+    // Generate hint text
+    function generateHint() {
+        const hintCost = 200 + (hintsUsed - 1) * 100;
+        switch (currentTimeframe) {
+            case "decade": return `Hint: Decade is between ${correctDate.decade - 20} and ${correctDate.decade + 20}. (-${hintCost} points)`;
+            case "year": return `Hint: Year is between ${correctDate.year - 5} and ${correctDate.year + 5}. (-${hintCost} points)`;
+            case "month": return `Hint: Year is ${correctDate.year}. (-${hintCost} points)`;
+            case "day": return `Hint: Month is ${["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"][correctDate.month - 1]}. (-${hintCost} points)`;
+        }
+    }
 
     // Update hint button text
     function updateHintButtonText() {
@@ -372,30 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
         hintButton.textContent = hintsUsed < 5 ? `Hint (-${hintCost} points)` : "Hint (Max Used)";
     }
 
-    // Check guess
-    function checkGuess(guess) {
-        switch (currentTimeframe) {
-            case "decade": return guess === correctDate.decade;
-            case "year": return guess === correctDate.year;
-            case "month": return guess.year === correctDate.year && guess.month === correctDate.month;
-            case "day": return guess.year === correctDate.year && guess.month === correctDate.month && guess.day === correctDate.day;
-        }
-        return false;
-    }
-
-    // Update score
-    function updateScore() {
-        const basePoints = { decade: 100, year: 200, month: 300, day: 400 }[currentTimeframe];
-        const maxBaseMultiplier = { decade: 5.0, year: 8.0, month: 10.0, day: 15.0 }[currentTimeframe];
-        streak++;
-        baseMultiplier = Math.min(getBaseMultiplier() + (streak - 1) * 0.1, maxBaseMultiplier);
-        multiplier = currentMode === "time-limit" ? baseMultiplier * 2 : baseMultiplier;
-        const maxMultiplier = maxBaseMultiplier * (currentMode === "time-limit" ? 2 : 1);
-        multiplier = Math.min(multiplier, maxMultiplier);
-        score += basePoints * multiplier;
-    }
-
-    // Update display
+    // Update UI elements
     function updateDisplay() {
         scoreDisplay.textContent = Math.round(score);
         streakDisplay.textContent = streak;
@@ -404,16 +357,16 @@ document.addEventListener("DOMContentLoaded", () => {
         hintsUsedDisplay.textContent = hintsUsed === 5 ? "5 (MAX)" : hintsUsed;
         timeRemainingDisplay.textContent = timeRemaining;
         timeLeftDisplay.style.display = currentMode === "time-limit" ? "block" : "none";
-        debugAnswer.textContent = correctDate ? `Debug Answer: ${correctDate.year}-${String(correctDate.month).padStart(2, '0')}-${String(correctDate.day).padStart(2, '0')}` : "Debug Answer: Loading...";
+        debugAnswer.textContent = correctDate ? `Debug Answer: ${correctDate.year}-${String(correctDate.month).padStart(2, "0")}-${String(correctDate.day).padStart(2, "0")}` : "Loading...";
     }
 
-    // End game
+    // End the game
     function endGame() {
         clearInterval(timerInterval);
         gameScreen.style.display = "none";
         endgameScreen.style.display = "block";
         const finalScore = Math.round(score);
-        endgameMessage.textContent = `The correct date was ${correctDate.year}-${String(correctDate.month).padStart(2, '0')}-${String(correctDate.day).padStart(2, '0')}.`;
+        endgameMessage.textContent = `The correct date was ${correctDate.year}-${String(correctDate.month).padStart(2, "0")}-${String(correctDate.day).padStart(2, "0")}.`;
         endgameScore.textContent = finalScore;
         personalBest = Math.max(personalBest, finalScore);
         personalBestDisplay.textContent = personalBest;
@@ -421,7 +374,7 @@ document.addEventListener("DOMContentLoaded", () => {
         watchAdButton.disabled = adUsed;
     }
 
-    // Endgame actions
+    // Endgame button listeners
     restartButton.addEventListener("click", () => startGame(currentTimeframe));
     backToMenuButton.addEventListener("click", () => {
         clearInterval(timerInterval);
@@ -429,9 +382,8 @@ document.addEventListener("DOMContentLoaded", () => {
         modeScreen.style.display = "block";
     });
     shareButton.addEventListener("click", () => {
-        const text = `I scored ${Math.round(score)} in ExtraXtra ${currentMode} ${currentTimeframe} mode! Beat that!`;
-        if (navigator.share) navigator.share({ text }).catch(err => console.error("Share failed:", err));
-        else alert("Share not supported. Copy this: " + text);
+        const text = `I scored ${Math.round(score)} in ExtraXtra ${currentMode} ${currentTimeframe} mode!`;
+        navigator.share ? navigator.share({ text }).catch(console.error) : alert("Copy this: " + text);
     });
     watchAdButton.addEventListener("click", () => {
         if (!adUsed) {
@@ -440,9 +392,8 @@ document.addEventListener("DOMContentLoaded", () => {
             endgameScreen.style.display = "none";
             gameScreen.style.display = "block";
             fetchArticle();
-            console.log("Ad watched - continuing game");
         }
     });
 
-    console.log("Menu loaded, awaiting mode selection...");
+    console.log("Game initialized, awaiting mode selection...");
 });
